@@ -1,31 +1,120 @@
-import { createClient } from "@supabase/supabase-js";
+"use client";
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import LogoutButton from "@/app/logout-button";
+import { createClient } from "@/lib/supabase";
 
-export default async function Home() {
-  const { data: tasks, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .order("id");
+type Task = {
+    id: number;
+    task: string;
+    completed: boolean;
+};
 
-  if (error) {
-    return <main><p>Error loading tasks: {error.message}</p></main>;
-  }
+export default function Home() {
+    const supabase = createClient();
 
-  return (
-      <main style={{ padding: "40px" }}>
-        <h1>My Tasks</h1>
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<any>(null);
 
-        <ul>
-          {tasks?.map((task) => (
-              <li key={task.id}>
-                {task.task} — {task.completed ? "Completed" : "Not completed"}
-              </li>
-          ))}
-        </ul>
-      </main>
-  );
+    useEffect(() => {
+        async function loadTasks() {
+            const { data } = await supabase
+                .from("tasks")
+                .select("id, task, completed")
+                .order("id");
+
+            setTasks(data || []);
+            setLoading(false);
+        }
+
+        loadTasks();
+    }, []);
+
+    useEffect(() => {
+        async function loadUser() {
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            setUser(user);
+        }
+
+        loadUser();
+    }, []);
+
+    const completedCount = tasks.filter((task) => task.completed).length;
+
+    return (
+        <>
+            <nav className="navbar">
+                <div className="logo">TaskFlow</div>
+
+                <div className="nav-links">
+                    <Link href="/" className="nav-link">
+                        Tasks
+                    </Link>
+
+                    {user ? (
+                        <>
+                            <Link href="/profile" className="nav-link">
+                                Profile
+                            </Link>
+                            <Link href="/dashboard" className="nav-link">
+                                Dashboard
+                            </Link>
+                            <LogoutButton />
+                        </>
+                    ) : (
+
+
+                        <Link href="/login" className="nav-link">
+                            Login
+                        </Link>
+                    )}
+                </div>
+
+            </nav>
+
+            <main className="page">
+                <div className="page-header">
+                    <div>
+                        <h1>My Tasks</h1>
+                        <p className="subtitle">
+                            Stay organized and keep track of what needs to get done.
+                        </p>
+                    </div>
+
+                    <div className="task-summary">
+                        {completedCount} of {tasks.length} completed
+                    </div>
+                </div>
+
+                <div className="card">
+                    {loading ? (
+                        <p>Loading tasks...</p>
+                    ) : tasks.length === 0 ? (
+                        <p>No tasks yet.</p>
+                    ) : (
+                        <div className="task-list">
+                            {tasks.map((task) => (
+                                <div className="task" key={task.id}>
+                                    <div>
+                                        <strong className={task.completed ? "completed" : ""}>
+                                            {task.task}
+                                        </strong>
+                                    </div>
+
+                                    <span className="status">
+                    {task.completed ? "Completed" : "Not completed"}
+                  </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </main>
+        </>
+    );
 }
