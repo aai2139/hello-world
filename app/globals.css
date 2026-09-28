@@ -200,3 +200,15 @@ h1 {
 .nav-button:hover {
   color: #111827;
 }
+.profile-prompt {
+  margin-bottom: 24px;
+}
+
+.profile-prompt h2 {
+  margin-top: 0;
+}
+
+.profile-prompt p {
+  color: #4b5563;
+  margin-bottom: 20px;
+}

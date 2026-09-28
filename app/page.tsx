@@ -17,6 +17,7 @@ export default function Home() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+    const [needsProfile, setNeedsProfile] = useState(false);
 
     useEffect(() => {
         async function loadTasks() {
@@ -39,10 +40,23 @@ export default function Home() {
             } = await supabase.auth.getUser();
 
             setUser(user);
+
+            if (user) {
+                const { data: profile } = await supabase
+                    .from("profiles")
+                    .select("first_name, last_name")
+                    .eq("id", user.id)
+                    .single();
+
+                if (!profile?.first_name || !profile?.last_name) {
+                    setNeedsProfile(true);
+                }
+            }
         }
 
         loadUser();
     }, []);
+
 
     const completedCount = tasks.filter((task) => task.completed).length;
 
@@ -78,6 +92,20 @@ export default function Home() {
             </nav>
 
             <main className="page">
+
+                {needsProfile && (
+                    <div className="card profile-prompt">
+                        <h2>Complete your profile</h2>
+                        <p>
+                            Please add your first and last name to finish setting up your
+                            account.
+                        </p>
+                        <Link href="/profile" className="primary-button">
+                            Go to Profile
+                        </Link>
+                    </div>
+                )}
+
                 <div className="page-header">
                     <div>
                         <h1>My Tasks</h1>
