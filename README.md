@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NYC Sidequests
 
-## Getting Started
+NYC Sidequests is a community feed of AI-generated New York micro-adventures. Anyone can browse fresh and top-rated plans. Google-authenticated users can generate new sidequests with Gemini and rate each plan **Worth it** or **Skip it**.
 
-First, run the development server:
+## Product behavior
+
+- Public, shareable sidequest feed and detail pages
+- Gemini-generated title, hook, three-stop itinerary, and budget note
+- Five generation attempts per authenticated user per rolling hour
+- One editable rating per user and sidequest
+- Private profiles, vote ownership, and generation audit data enforced with Supabase RLS
+- Server-only generation and public-feed data access so clients cannot forge AI content or expose creator IDs and saved prompts
+
+## Local setup
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Copy `.env.example` to `.env.local` and provide:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+GEMINI_API_KEY=your-gemini-key
+GEMINI_MODEL=gemini-3.8-flash
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` are server secrets. Never prefix them with `NEXT_PUBLIC_` or expose them to browser code.
+
+Run [`supabase/migrations/202610050001_nyc_sidequests.sql`](supabase/migrations/202610050001_nyc_sidequests.sql) in the Supabase SQL Editor. The migration creates the sidequest, vote, and quota tables; installs aggregate triggers; enables RLS; replaces policies on the app tables; and locks the retired `tasks` table.
+
+The existing `avatars` Storage bucket should remain public because existing profiles store public avatar URLs. The migration restricts avatar writes and deletes to the authenticated user’s folder. Review and remove any older permissive avatar write policies in the Supabase dashboard if they exist.
+
+Start the app:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Verification
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
 
-## Learn More
+The build script uses Next.js 16's supported webpack build mode because Turbopack's CSS worker cannot bind its internal port in some restricted grading and CI environments.
 
-To learn more about Next.js, take a look at the following resources:
+Before submission, test with two accounts and an Incognito window:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Confirm a signed-out visitor can browse but is sent to Google login when creating or rating.
+2. Generate a sidequest and confirm the exact prompt, model name, user, and output are saved in `sidequests`.
+3. Rate from a second account, switch the vote, and confirm there is still one `votes` row and the aggregate counts change correctly.
+4. Confirm one user cannot read or mutate another user’s profile or vote through the Supabase API.
+5. Confirm direct browser inserts into `sidequests`, `generation_attempts`, and the retired `tasks` table fail.
+6. Confirm the sixth generation attempt within a rolling hour is rejected.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Vercel deployment
 
-## Deploy on Vercel
+1. Commit and push the completed code.
+2. Import or link the GitHub repository in Vercel.
+3. Add the four required environment variables above to the Production environment. `GEMINI_MODEL` is optional.
+4. Add `https://<your-vercel-domain>/auth/callback` to the Supabase Auth redirect URL allowlist. Keep the local callback for development.
+5. Deploy the exact submission commit and run the verification flow against its immutable Vercel deployment URL.
+6. In **Vercel → Project Settings → Deployment Protection**, disable protection for the submitted deployment.
+7. Open the immutable deployment URL in Incognito Mode before submitting it. Record that URL together with the Git commit SHA.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Data model and RLS
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `sidequests`: browser users can select only their own rows. Inserts and public presentation reads use a minimal server-only service-role client.
+- `votes`: authenticated users can select, insert, and update only their own rows. A database trigger owns the public counters.
+- `generation_attempts`: inaccessible to browser roles and used by an atomic service-role function for quota claims.
+- `profiles`: authenticated users can select, insert, and update only their own row.
+- `tasks`: RLS enabled with no browser policies because the table is no longer used.
+
+The public UI receives only the generated content, normalized inputs, aggregate counts, and creation date. It does not receive creator IDs, profile records, model prompts, or individual voters.

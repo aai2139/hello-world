@@ -1,46 +1,67 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import LogoutButton from "@/app/logout-button";
+import SidequestCard from "@/app/sidequest-card";
+import { getOwnSidequests, getRemainingGenerations } from "@/lib/sidequest-data";
+import type { VoteValue } from "@/lib/sidequests";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardPage() {
-    const supabase = await createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+  if (!user) redirect("/login?next=/dashboard");
 
-    if (!user) {
-        redirect("/");
-    }
+  const [sidequests, remaining] = await Promise.all([
+    getOwnSidequests(user.id),
+    getRemainingGenerations(user.id),
+  ]);
 
-    return (
-        <>
-            <nav className="navbar">
-                <div className="logo">TaskFlow</div>
+  const votes = new Map<string, VoteValue>();
+  if (sidequests.length > 0) {
+    const { data } = await supabase
+      .from("votes")
+      .select("sidequest_id, value")
+      .in("sidequest_id", sidequests.map((sidequest) => sidequest.id));
+    for (const vote of data ?? []) votes.set(vote.sidequest_id, vote.value as VoteValue);
+  }
 
-                <div className="nav-links">
-                    <a href="/">Tasks</a>
-                    <a href="/profile">Profile</a>
-                    <a href="/dashboard">Dashboard</a>
-                    <LogoutButton />
-                </div>
+  return (
+    <main className="page dashboard-page">
+      <div className="dashboard-heading">
+        <div>
+          <p className="eyebrow">Your dispatches</p>
+          <h1>My sidequests</h1>
+          <p>Signed in as {user.email}</p>
+        </div>
+        <div className="dashboard-actions">
+          <span className="quota-pill">{remaining} of 5 generations left this hour</span>
+          <Link href="/create" className="primary-button">Make another</Link>
+        </div>
+      </div>
 
-
-            </nav>
-
-
-            <main className="page">
-                <div className="card">
-                    <h1>Private Dashboard</h1>
-                    <p className="subtitle">
-                        You can see this page because you are logged in.
-                    </p>
-
-                    <p>
-                        Signed in as <strong>{user.email}</strong>
-                    </p>
-                </div>
-            </main>
-        </>
-    );
+      {sidequests.length === 0 ? (
+        <div className="empty-state">
+          <span aria-hidden="true">🚇</span>
+          <h2>Your quest log is empty</h2>
+          <p>Pick a neighborhood and let AI plan your first city detour.</p>
+          <Link href="/create" className="primary-button">Generate one</Link>
+        </div>
+      ) : (
+        <div className="feed-grid">
+          {sidequests.map((sidequest) => (
+            <SidequestCard
+              key={sidequest.id}
+              sidequest={sidequest}
+              currentVote={votes.get(sidequest.id)}
+              isLoggedIn
+            />
+          ))}
+        </div>
+      )}
+    </main>
+  );
 }

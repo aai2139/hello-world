@@ -1,148 +1,104 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import LogoutButton from "@/app/logout-button";
-import { createClient } from "@/lib/supabase";
+import SidequestCard from "@/app/sidequest-card";
+import { getPublicSidequests } from "@/lib/sidequest-data";
+import type { Sidequest, VoteValue } from "@/lib/sidequests";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
-type Task = {
-    id: number;
-    task: string;
-    completed: boolean;
+export const dynamic = "force-dynamic";
+
+type HomeProps = {
+  searchParams: Promise<{ sort?: string }>;
 };
 
-export default function Home() {
-    const supabase = createClient();
+export default async function Home({ searchParams }: HomeProps) {
+  const { sort: sortParam } = await searchParams;
+  const sort = sortParam === "top" ? "top" : "fresh";
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState<any>(null);
-    const [needsProfile, setNeedsProfile] = useState(false);
+  let sidequests: Sidequest[] = [];
+  let setupError = false;
+  try {
+    sidequests = await getPublicSidequests(sort);
+  } catch (error) {
+    console.error("Could not load public sidequests", error);
+    setupError = true;
+  }
 
-    useEffect(() => {
-        async function loadTasks() {
-            const { data } = await supabase
-                .from("tasks")
-                .select("id, task, completed")
-                .order("id");
+  const votes = new Map<string, VoteValue>();
+  if (user && sidequests.length > 0) {
+    const { data } = await supabase
+      .from("votes")
+      .select("sidequest_id, value")
+      .in("sidequest_id", sidequests.map((sidequest) => sidequest.id));
+    for (const vote of data ?? []) {
+      votes.set(vote.sidequest_id, vote.value as VoteValue);
+    }
+  }
 
-            setTasks(data || []);
-            setLoading(false);
-        }
+  return (
+    <main>
+      <section className="hero">
+        <div className="hero-grid">
+          <div>
+            <p className="eyebrow">Crowdsourced chaos. AI-planned weekends.</p>
+            <h1>Trade the dorm for a New York sidequest.</h1>
+            <p className="hero-copy">Pick a neighborhood and a vibe. AI plots three stops, then the community decides whether the plan is actually worth it.</p>
+            <div className="hero-actions">
+              <Link className="primary-button" href={user ? "/create" : "/login?next=/create"}>
+                Generate a sidequest
+              </Link>
+              <a className="secondary-button" href="#feed">See what&apos;s trending</a>
+            </div>
+          </div>
+          <div className="hero-stamp" aria-label="Made for curious Columbia students">
+            <span>MADE FOR</span>
+            <strong>CURIOUS<br />NEW YORKERS</strong>
+            <small>EST. 2026 · MORNINGSIDE HEIGHTS</small>
+          </div>
+        </div>
+      </section>
 
-        loadTasks();
-    }, []);
+      <section className="page feed-section" id="feed">
+        <div className="feed-heading">
+          <div>
+            <p className="eyebrow">Community field notes</p>
+            <h2>Choose your next detour</h2>
+          </div>
+          <div className="sort-tabs" aria-label="Sort sidequests">
+            <Link className={sort === "fresh" ? "active" : ""} href="/?sort=fresh#feed">Fresh</Link>
+            <Link className={sort === "top" ? "active" : ""} href="/?sort=top#feed">Top this week</Link>
+          </div>
+        </div>
 
-    useEffect(() => {
-        async function loadUser() {
-            const {
-                data: { user },
-            } = await supabase.auth.getUser();
-
-            setUser(user);
-
-            if (user) {
-                const { data: profile } = await supabase
-                    .from("profiles")
-                    .select("first_name, last_name")
-                    .eq("id", user.id)
-                    .single();
-
-                if (!profile?.first_name || !profile?.last_name) {
-                    setNeedsProfile(true);
-                }
-            }
-        }
-
-        loadUser();
-    }, []);
-
-
-    const completedCount = tasks.filter((task) => task.completed).length;
-
-    return (
-        <>
-            <nav className="navbar">
-                <div className="logo">TaskFlow</div>
-
-                <div className="nav-links">
-                    <Link href="/" className="nav-link">
-                        Tasks
-                    </Link>
-
-                    {user ? (
-                        <>
-                            <Link href="/profile" className="nav-link">
-                                Profile
-                            </Link>
-                            <Link href="/dashboard" className="nav-link">
-                                Dashboard
-                            </Link>
-                            <LogoutButton />
-                        </>
-                    ) : (
-
-
-                        <Link href="/login" className="nav-link">
-                            Login
-                        </Link>
-                    )}
-                </div>
-
-            </nav>
-
-            <main className="page">
-
-                {needsProfile && (
-                    <div className="card profile-prompt">
-                        <h2>Complete your profile</h2>
-                        <p>
-                            Please add your first and last name to finish setting up your
-                            account.
-                        </p>
-                        <Link href="/profile" className="primary-button">
-                            Go to Profile
-                        </Link>
-                    </div>
-                )}
-
-                <div className="page-header">
-                    <div>
-                        <h1>My Tasks</h1>
-                        <p className="subtitle">
-                            Stay organized and keep track of what needs to get done.
-                        </p>
-                    </div>
-
-                    <div className="task-summary">
-                        {completedCount} of {tasks.length} completed
-                    </div>
-                </div>
-
-                <div className="card">
-                    {loading ? (
-                        <p>Loading tasks...</p>
-                    ) : tasks.length === 0 ? (
-                        <p>No tasks yet.</p>
-                    ) : (
-                        <div className="task-list">
-                            {tasks.map((task) => (
-                                <div className="task" key={task.id}>
-                                    <div>
-                                        <strong className={task.completed ? "completed" : ""}>
-                                            {task.task}
-                                        </strong>
-                                    </div>
-
-                                    <span className="status">
-                    {task.completed ? "Completed" : "Not completed"}
-                  </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </main>
-        </>
-    );
+        {setupError ? (
+          <div className="empty-state">
+            <span aria-hidden="true">🗺️</span>
+            <h3>The map is waiting for setup</h3>
+            <p>Apply the Supabase migration and add the server environment variables to start publishing sidequests.</p>
+          </div>
+        ) : sidequests.length === 0 ? (
+          <div className="empty-state">
+            <span aria-hidden="true">🗽</span>
+            <h3>No sidequests yet</h3>
+            <p>Be the first person to send the community somewhere unexpected.</p>
+            <Link className="primary-button" href={user ? "/create" : "/login?next=/create"}>Create the first one</Link>
+          </div>
+        ) : (
+          <div className="feed-grid">
+            {sidequests.map((sidequest) => (
+              <SidequestCard
+                key={sidequest.id}
+                sidequest={sidequest}
+                currentVote={votes.get(sidequest.id)}
+                isLoggedIn={Boolean(user)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </main>
+  );
 }
