@@ -21,7 +21,6 @@ export default async function SiteHeader() {
             <>
               <Link href="/create" className="nav-create">Create</Link>
               <Link href="/dashboard">My quests</Link>
-              <Link href="/profile">Profile</Link>
               <LogoutButton />
             </>
           ) : (

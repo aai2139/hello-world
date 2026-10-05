@@ -135,10 +135,8 @@ a { color: inherit; text-decoration: none; }
 .vote-button.positive:hover, .vote-button.positive.selected { background: var(--lime); }
 .vote-button.negative:hover, .vote-button.negative.selected { background: #ffc5af; }
 .vote-button.selected { box-shadow: 2px 2px 0 var(--ink); }
-.vote-status, .vote-error, .vote-summary { color: var(--muted); font-size: 11px; }
+.vote-status, .vote-error { color: var(--muted); font-size: 11px; }
 .vote-error { color: #a3301e; max-width: 180px; }
-.sign-in-to-vote { padding: 7px 10px; border: 1px solid var(--ink); font-size: 12px; font-weight: 800; }
-.sign-in-to-vote:hover { background: var(--lime); }
 .details-link { white-space: nowrap; font-size: 12px; font-weight: 900; }
 .details-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
@@ -200,11 +198,6 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
 .google-g { color: var(--blue); font-size: 18px; }
 .login-copy small { margin-top: 18px; max-width: 390px; color: var(--muted); line-height: 1.5; }
 
-.profile-avatar { width: 108px; height: 108px; margin-bottom: 25px; border: 2px solid var(--ink); background: var(--orange); display: grid; place-items: center; box-shadow: 4px 4px 0 var(--ink); overflow: hidden; }
-.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.profile-avatar span { font-family: var(--serif); font-size: 30px; font-weight: 900; }
-.profile-name-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-
 .site-footer { min-height: 110px; padding: 30px max(20px, calc((100% - 1120px) / 2)); border-top: 2px solid var(--ink); background: var(--ink); color: var(--paper); display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .site-footer span { font-family: var(--serif); font-size: 23px; font-weight: 900; }
 .site-footer p { margin: 0; color: #bdc5bc; font-size: 13px; }
@@ -223,7 +216,6 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
   .nav-shell { width: min(100% - 24px, 1180px); min-height: 62px; }
   .brand > span:last-child { display: none; }
   .nav-links { gap: 12px; font-size: 12px; }
-  .nav-links a[href="/profile"] { display: none; }
   .hero-grid { width: min(100% - 28px, 1180px); min-height: auto; padding: 55px 0; }
   .hero h1 { font-size: clamp(49px, 16vw, 72px); }
   .hero-copy { font-size: 17px; }
@@ -234,7 +226,6 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
   .card-footer { align-items: flex-start; flex-direction: column; }
   .form-card { padding: 20px; box-shadow: 4px 4px 0 var(--ink); }
   .choice-grid, .choice-grid.three-columns { grid-template-columns: 1fr 1fr; }
-  .profile-name-grid { grid-template-columns: 1fr; gap: 0; }
   .login-page { width: min(100% - 28px, 1000px); padding: 45px 0 70px; }
   .login-copy { padding: 32px 24px 38px; }
   .ai-note { flex-direction: column; gap: 8px; }

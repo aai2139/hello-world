@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import SidequestCard from "@/app/sidequest-card";
 import { getPublicSidequests } from "@/lib/sidequest-data";
 import type { Sidequest, VoteValue } from "@/lib/sidequests";
@@ -18,6 +19,8 @@ export default async function Home({ searchParams }: HomeProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) redirect("/login?next=/");
+
   let sidequests: Sidequest[] = [];
   let setupError = false;
   try {
@@ -28,7 +31,7 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   const votes = new Map<string, VoteValue>();
-  if (user && sidequests.length > 0) {
+  if (sidequests.length > 0) {
     const { data } = await supabase
       .from("votes")
       .select("sidequest_id, value")
@@ -47,7 +50,7 @@ export default async function Home({ searchParams }: HomeProps) {
             <h1>Trade the dorm for a New York sidequest.</h1>
             <p className="hero-copy">Pick a neighborhood and a vibe. AI plots three stops, then the community decides whether the plan is actually worth it.</p>
             <div className="hero-actions">
-              <Link className="primary-button" href={user ? "/create" : "/login?next=/create"}>
+              <Link className="primary-button" href="/create">
                 Generate a sidequest
               </Link>
               <a className="secondary-button" href="#feed">See what&apos;s trending</a>
@@ -84,7 +87,7 @@ export default async function Home({ searchParams }: HomeProps) {
             <span aria-hidden="true">🗽</span>
             <h3>No sidequests yet</h3>
             <p>Be the first person to send the community somewhere unexpected.</p>
-            <Link className="primary-button" href={user ? "/create" : "/login?next=/create"}>Create the first one</Link>
+            <Link className="primary-button" href="/create">Create the first one</Link>
           </div>
         ) : (
           <div className="feed-grid">
@@ -93,7 +96,6 @@ export default async function Home({ searchParams }: HomeProps) {
                 key={sidequest.id}
                 sidequest={sidequest}
                 currentVote={votes.get(sidequest.id)}
-                isLoggedIn={Boolean(user)}
               />
             ))}
           </div>

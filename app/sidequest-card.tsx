@@ -5,14 +5,12 @@ import { budgetLabel, vibeLabel, type Sidequest, type VoteValue } from "@/lib/si
 type SidequestCardProps = {
   sidequest: Sidequest;
   currentVote?: VoteValue | null;
-  isLoggedIn: boolean;
   detailed?: boolean;
 };
 
 export default function SidequestCard({
   sidequest,
   currentVote = null,
-  isLoggedIn,
   detailed = false,
 }: SidequestCardProps) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
@@ -63,7 +61,6 @@ export default function SidequestCard({
           initialWorthItCount={sidequest.worthItCount}
           initialSkipItCount={sidequest.skipItCount}
           initialVote={currentVote}
-          isLoggedIn={isLoggedIn}
         />
         {!detailed && (
           <Link className="details-link" href={`/sidequests/${sidequest.id}`}>

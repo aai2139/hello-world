@@ -57,7 +57,6 @@ export default async function DashboardPage() {
               key={sidequest.id}
               sidequest={sidequest}
               currentVote={votes.get(sidequest.id)}
-              isLoggedIn
             />
           ))}
         </div>

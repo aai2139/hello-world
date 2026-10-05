@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import SidequestCard from "@/app/sidequest-card";
 import { getPublicSidequest } from "@/lib/sidequest-data";
 import type { VoteValue } from "@/lib/sidequests";
@@ -14,23 +14,23 @@ type SidequestPageProps = {
 export default async function SidequestPage({ params }: SidequestPageProps) {
   const { id } = await params;
   const supabase = await createServerSupabaseClient();
-  const [sidequest, authResult] = await Promise.all([
-    getPublicSidequest(id),
-    supabase.auth.getUser(),
-  ]);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect(`/login?next=/sidequests/${id}`);
+
+  const sidequest = await getPublicSidequest(id);
 
   if (!sidequest) notFound();
-  const user = authResult.data.user;
   let currentVote: VoteValue | null = null;
 
-  if (user) {
-    const { data } = await supabase
-      .from("votes")
-      .select("value")
-      .eq("sidequest_id", sidequest.id)
-      .maybeSingle();
-    currentVote = (data?.value as VoteValue | undefined) ?? null;
-  }
+  const { data } = await supabase
+    .from("votes")
+    .select("value")
+    .eq("sidequest_id", sidequest.id)
+    .maybeSingle();
+  currentVote = (data?.value as VoteValue | undefined) ?? null;
 
   return (
     <main className="page detail-page">
@@ -38,7 +38,6 @@ export default async function SidequestPage({ params }: SidequestPageProps) {
       <SidequestCard
         sidequest={sidequest}
         currentVote={currentVote}
-        isLoggedIn={Boolean(user)}
         detailed
       />
       <aside className="ai-note">

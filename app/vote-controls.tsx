@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { castVote } from "@/app/actions";
 import type { VoteValue } from "@/lib/sidequests";
@@ -10,7 +9,6 @@ type VoteControlsProps = {
   initialWorthItCount: number;
   initialSkipItCount: number;
   initialVote: VoteValue | null;
-  isLoggedIn: boolean;
 };
 
 export default function VoteControls({
@@ -18,24 +16,12 @@ export default function VoteControls({
   initialWorthItCount,
   initialSkipItCount,
   initialVote,
-  isLoggedIn,
 }: VoteControlsProps) {
   const [worthItCount, setWorthItCount] = useState(initialWorthItCount);
   const [skipItCount, setSkipItCount] = useState(initialSkipItCount);
   const [vote, setVote] = useState<VoteValue | null>(initialVote);
   const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
-
-  if (!isLoggedIn) {
-    return (
-      <div className="vote-area">
-        <Link href={`/login?next=/sidequests/${sidequestId}`} className="sign-in-to-vote">
-          Sign in to rate
-        </Link>
-        <span className="vote-summary">{worthItCount + skipItCount} ratings</span>
-      </div>
-    );
-  }
 
   function submitVote(value: VoteValue) {
     setError("");

@@ -1,15 +1,15 @@
 # NYC Sidequests
 
-NYC Sidequests is a community feed of AI-generated New York micro-adventures. Anyone can browse fresh and top-rated plans. Google-authenticated users can generate new sidequests with Gemini and rate each plan **Worth it** or **Skip it**.
+NYC Sidequests is an authenticated community feed of AI-generated New York micro-adventures. Google-authenticated users can browse plans, generate new sidequests with Gemini, and rate each one **Worth it** or **Skip it**.
 
 ## Product behavior
 
-- Public, shareable sidequest feed and detail pages
+- Authenticated sidequest feed and detail pages
 - Gemini-generated title, hook, three-stop itinerary, and budget note
 - Five generation attempts per authenticated user per rolling hour
 - One editable rating per user and sidequest
-- Private profiles, vote ownership, and generation audit data enforced with Supabase RLS
-- Server-only generation and public-feed data access so clients cannot forge AI content or expose creator IDs and saved prompts
+- Vote ownership and generation audit data enforced with Supabase RLS
+- Server-only generation and feed data access so clients cannot forge AI content or expose creator IDs and saved prompts
 
 ## Local setup
 
@@ -33,7 +33,7 @@ GEMINI_MODEL=gemini-3.8-flash
 
 Run [`supabase/migrations/202610050001_nyc_sidequests.sql`](supabase/migrations/202610050001_nyc_sidequests.sql) in the Supabase SQL Editor. The migration creates the sidequest, vote, and quota tables; installs aggregate triggers; enables RLS; replaces policies on the app tables; and locks the retired `tasks` table.
 
-The existing `avatars` Storage bucket should remain public because existing profiles store public avatar URLs. The migration restricts avatar writes and deletes to the authenticated user’s folder. Review and remove any older permissive avatar write policies in the Supabase dashboard if they exist.
+The migration also locks down the existing `profiles`, `tasks`, and avatar Storage data from the earlier assignment, even though this version no longer includes a profile page.
 
 Start the app:
 
@@ -55,7 +55,7 @@ The build script uses Next.js 16's supported webpack build mode because Turbopac
 
 Before submission, test with two accounts and an Incognito window:
 
-1. Confirm a signed-out visitor can browse but is sent to Google login when creating or rating.
+1. Confirm a signed-out visitor is sent to Google login from the feed, detail, create, and dashboard routes.
 2. Generate a sidequest and confirm the exact prompt, model name, user, and output are saved in `sidequests`.
 3. Rate from a second account, switch the vote, and confirm there is still one `votes` row and the aggregate counts change correctly.
 4. Confirm one user cannot read or mutate another user’s profile or vote through the Supabase API.
@@ -74,10 +74,10 @@ Before submission, test with two accounts and an Incognito window:
 
 ## Data model and RLS
 
-- `sidequests`: browser users can select only their own rows. Inserts and public presentation reads use a minimal server-only service-role client.
+- `sidequests`: browser users can select only their own rows. Inserts and feed presentation reads use a minimal server-only service-role client.
 - `votes`: authenticated users can select, insert, and update only their own rows. A database trigger owns the public counters.
 - `generation_attempts`: inaccessible to browser roles and used by an atomic service-role function for quota claims.
 - `profiles`: authenticated users can select, insert, and update only their own row.
 - `tasks`: RLS enabled with no browser policies because the table is no longer used.
 
-The public UI receives only the generated content, normalized inputs, aggregate counts, and creation date. It does not receive creator IDs, profile records, model prompts, or individual voters.
+The authenticated UI receives only the generated content, normalized inputs, aggregate counts, and creation date. It does not receive creator IDs, profile records, model prompts, or individual voters.
