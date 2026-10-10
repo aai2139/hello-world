@@ -1,6 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import VoteControls from "@/app/vote-controls";
-import { budgetLabel, vibeLabel, type Sidequest, type VoteValue } from "@/lib/sidequests";
+import {
+  sidequestBudgetLabel,
+  vibeLabel,
+  type Sidequest,
+  type VoteValue,
+} from "@/lib/sidequests";
 
 type SidequestCardProps = {
   sidequest: Sidequest;
@@ -20,10 +26,33 @@ export default function SidequestCard({
 
   return (
     <article className={`sidequest-card${detailed ? " sidequest-detail" : ""}`}>
+      <figure className="cover-photo">
+        <Image
+          src="/nyc-skyline.jpg"
+          alt="The Manhattan skyline at golden hour"
+          fill
+          sizes={detailed ? "(max-width: 850px) 100vw, 850px" : "(max-width: 850px) 100vw, 540px"}
+          priority={detailed}
+        />
+        <div className="cover-scrim" />
+        <figcaption>
+          <span>NYC field guide</span>
+          <a
+            href="https://commons.wikimedia.org/wiki/File:Skyline_of_Manhattan.jpg"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Photo: Michael Discenza · CC0
+          </a>
+        </figcaption>
+      </figure>
       <div className="card-topline">
         <div className="tag-row">
           <span className="tag tag-place">{sidequest.neighborhood}</span>
-          <span className="tag">{budgetLabel(sidequest.budget)}</span>
+          <span className="tag">{sidequestBudgetLabel(sidequest)}</span>
+          {sidequest.partySize > 1 && (
+            <span className="tag">{sidequest.partySize} people</span>
+          )}
           <span className="tag">{vibeLabel(sidequest.vibe)}</span>
         </div>
         <time dateTime={sidequest.createdAt}>{formattedDate}</time>

@@ -7,6 +7,9 @@ type SidequestRow = {
   id: string;
   neighborhood: string;
   budget: Budget;
+  budget_min_cents: number | null;
+  budget_max_cents: number | null;
+  party_size: number;
   vibe: Vibe;
   title: string;
   hook: string;
@@ -18,13 +21,16 @@ type SidequestRow = {
 };
 
 const PUBLIC_COLUMNS =
-  "id, neighborhood, budget, vibe, title, hook, stops, budget_note, worth_it_count, skip_it_count, created_at";
+  "id, neighborhood, budget, budget_min_cents, budget_max_cents, party_size, vibe, title, hook, stops, budget_note, worth_it_count, skip_it_count, created_at";
 
 function toSidequest(row: SidequestRow): Sidequest {
   return {
     id: row.id,
     neighborhood: row.neighborhood,
     budget: row.budget,
+    budgetMinCents: row.budget_min_cents,
+    budgetMaxCents: row.budget_max_cents,
+    partySize: row.party_size,
     vibe: row.vibe,
     title: row.title,
     hook: row.hook,

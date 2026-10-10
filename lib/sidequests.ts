@@ -19,12 +19,18 @@ export type VoteValue = -1 | 1;
 export type SidequestStop = {
   label: string;
   activity: string;
+  mapQuery?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type Sidequest = {
   id: string;
   neighborhood: string;
   budget: Budget;
+  budgetMinCents: number | null;
+  budgetMaxCents: number | null;
+  partySize: number;
   vibe: Vibe;
   title: string;
   hook: string;
@@ -37,6 +43,16 @@ export type Sidequest = {
 
 export function budgetLabel(value: Budget) {
   return BUDGET_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
+export function sidequestBudgetLabel(sidequest: Sidequest) {
+  if (sidequest.budgetMinCents !== null && sidequest.budgetMaxCents !== null) {
+    const minimum = sidequest.budgetMinCents / 100;
+    const maximum = sidequest.budgetMaxCents / 100;
+    return `$${minimum}–$${maximum} / person`;
+  }
+
+  return budgetLabel(sidequest.budget);
 }
 
 export function vibeLabel(value: Vibe) {

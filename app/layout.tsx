@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import SiteHeader from "@/app/site-header";
 
@@ -18,7 +19,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <footer className="site-footer">
           <span>NYC Sidequests</span>
-          <p>AI makes the plan. New Yorkers make the call.</p>
         </footer>
       </body>
     </html>

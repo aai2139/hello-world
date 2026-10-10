@@ -6,6 +6,8 @@ NYC Sidequests is an authenticated community feed of AI-generated New York micro
 
 - Authenticated sidequest feed and detail pages
 - Gemini-generated title, hook, three-stop itinerary, and budget note
+- Flexible per-person budgets, groups of 1–12, and optional planning preferences
+- Generic CC0 NYC cover photography and approximate OpenStreetMap itinerary routes
 - Five generation attempts per authenticated user per rolling hour
 - One editable rating per user and sidequest
 - Vote ownership and generation audit data enforced with Supabase RLS
@@ -31,7 +33,7 @@ GEMINI_MODEL=gemini-3.8-flash
 
 `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` are server secrets. Never prefix them with `NEXT_PUBLIC_` or expose them to browser code.
 
-Run [`supabase/migrations/202610050001_nyc_sidequests.sql`](supabase/migrations/202610050001_nyc_sidequests.sql) in the Supabase SQL Editor. The migration creates the sidequest, vote, and quota tables; installs aggregate triggers; enables RLS; replaces policies on the app tables; and locks the retired `tasks` table.
+Apply the migrations in [`supabase/migrations`](supabase/migrations) in filename order. They create the sidequest, vote, and quota tables; install aggregate triggers; enable RLS; replace policies on the app tables; lock the retired `tasks` table; and add flexible budgets, party size, preferences, and approximate map locations.
 
 The migration also locks down the existing `profiles`, `tasks`, and avatar Storage data from the earlier assignment, even though this version no longer includes a profile page.
 

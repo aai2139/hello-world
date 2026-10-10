@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateSidequest } from "@/lib/gemini";
-import { isBudget, isVibe, type VoteValue } from "@/lib/sidequests";
+import { addApproximateCoordinates } from "@/lib/geocode";
+import { isVibe, type Budget, type VoteValue } from "@/lib/sidequests";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
@@ -44,15 +45,38 @@ export async function createSidequest(
   const neighborhood = String(formData.get("neighborhood") ?? "")
     .replace(/\s+/g, " ")
     .trim();
-  const budget = String(formData.get("budget") ?? "");
+  const budgetMin = Number(formData.get("budgetMin"));
+  const budgetMax = Number(formData.get("budgetMax"));
+  const partySize = Number(formData.get("partySize"));
+  const preferences = String(formData.get("preferences") ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   const vibe = String(formData.get("vibe") ?? "");
 
   if (neighborhood.length < 2 || neighborhood.length > 60) {
     return { error: "Enter a neighborhood or area between 2 and 60 characters." };
   }
-  if (!isBudget(budget) || !isVibe(vibe)) {
-    return { error: "Choose a valid budget and vibe." };
+  if (
+    !Number.isInteger(budgetMin) ||
+    !Number.isInteger(budgetMax) ||
+    budgetMin < 0 ||
+    budgetMax > 500 ||
+    budgetMin > budgetMax
+  ) {
+    return { error: "Choose a per-person budget from $0 to $500, with the minimum no higher than the maximum." };
   }
+  if (!Number.isInteger(partySize) || partySize < 1 || partySize > 12) {
+    return { error: "Choose a group size between 1 and 12 people." };
+  }
+  if (preferences.length > 500) {
+    return { error: "Keep additional preferences to 500 characters or fewer." };
+  }
+  if (!isVibe(vibe)) {
+    return { error: "Choose a valid vibe." };
+  }
+
+  const budget: Budget =
+    budgetMax <= 25 ? "under-25" : budgetMax <= 50 ? "25-50" : "50-plus";
 
   let admin;
   try {
@@ -76,11 +100,20 @@ export async function createSidequest(
 
   let generated;
   try {
-    generated = await generateSidequest({ neighborhood, budget, vibe });
+    generated = await generateSidequest({
+      neighborhood,
+      budgetMin,
+      budgetMax,
+      partySize,
+      preferences,
+      vibe,
+    });
   } catch (error) {
     console.error("Gemini generation failed", error);
     return { error: generationErrorMessage(error) };
   }
+
+  const stops = await addApproximateCoordinates(generated.stops);
 
   const { data: sidequest, error: insertError } = await admin
     .from("sidequests")
@@ -88,10 +121,14 @@ export async function createSidequest(
       creator_id: user.id,
       neighborhood,
       budget,
+      budget_min_cents: budgetMin * 100,
+      budget_max_cents: budgetMax * 100,
+      party_size: partySize,
+      preferences: preferences || null,
       vibe,
       title: generated.title,
       hook: generated.hook,
-      stops: generated.stops,
+      stops,
       budget_note: generated.budgetNote,
       prompt_text: generated.promptText,
       model_name: generated.modelName,
