@@ -47,11 +47,28 @@ a { color: inherit; text-decoration: none; }
   justify-content: space-between;
   gap: 24px;
 }
-.brand { position: relative; isolation: isolate; min-height: 48px; display: flex; align-items: center; gap: 10px; font-weight: 900; letter-spacing: -0.04em; font-size: 21px; }
-.brand > span { position: relative; z-index: 2; }
-.brand-skyline { position: absolute; z-index: 1; left: -5px; bottom: 1px; width: 184px; height: 43px; color: var(--ink); opacity: 0.12; pointer-events: none; }
-.brand-skyline path { fill: currentColor; }
+.brand { min-height: 48px; display: flex; align-items: center; gap: 9px; font-family: Helvetica, Arial, sans-serif; font-weight: 900; }
 .brand-mark { background: var(--ink); color: var(--lime); padding: 7px 8px 6px; letter-spacing: 0.04em; transform: rotate(-2deg); }
+.brand-routes { display: flex; align-items: center; letter-spacing: 0; }
+.route-badge {
+  width: 27px;
+  height: 27px;
+  margin-left: -3px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--ink);
+  border-radius: 50%;
+  color: white;
+  font-size: 14px;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+}
+.route-badge:first-child { margin-left: 0; }
+.route-badge-1, .route-badge-6 { background: #0039a6; }
+.route-badge-2, .route-badge-7 { background: #ff6319; }
+.route-badge-3, .route-badge-8 { background: #ee352e; }
+.route-badge-4, .route-badge-9 { background: #996cac; }
+.route-badge-5, .route-badge-10 { background: #00933c; }
 .nav-links { display: flex; align-items: center; gap: 23px; font-size: 14px; font-weight: 700; }
 .nav-links a:not(.nav-create):hover, .nav-button:hover { text-decoration: underline; text-underline-offset: 4px; }
 .nav-create { padding: 9px 15px; background: var(--lime); border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); }
@@ -254,7 +271,7 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
 
 @media (max-width: 650px) {
   .nav-shell { width: min(100% - 24px, 1180px); min-height: 62px; }
-  .brand > span:last-child { display: none; }
+  .brand-routes { display: none; }
   .nav-links { gap: 12px; font-size: 12px; }
   .hero-grid { width: min(100% - 28px, 1180px); min-height: auto; padding: 55px 0; }
   .hero h1 { font-size: clamp(49px, 16vw, 72px); }
