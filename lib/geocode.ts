@@ -55,14 +55,20 @@ export async function addExactCoordinates(stops: GeneratedStop[]) {
       if (lookupIndex > 0) await wait(1_100);
       lookupIndex += 1;
       try {
-        const location = await geocode(`${place.mapQuery}, ${place.address}`);
+        let location = await geocode(place.mapQuery);
+        if (!location) {
+          await wait(1_100);
+          lookupIndex += 1;
+          location = await geocode(place.address);
+        }
         if (location) places.push({ ...place, ...location });
       } catch (error) {
         console.error("Could not geocode sidequest place", error);
       }
     }
     if (places.length === 0) {
-      throw new Error(`No exact map location could be found for ${stop.label}.`);
+      const attemptedPlaces = stop.places.map((place) => place.mapQuery).join("; ");
+      throw new Error(`No map location could be found for ${stop.label}: ${attemptedPlaces}.`);
     }
     locatedStops.push({ ...stop, places });
   }
