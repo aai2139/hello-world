@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateSidequest } from "@/lib/gemini";
-import { addApproximateCoordinates } from "@/lib/geocode";
+import { addExactCoordinates } from "@/lib/geocode";
+import { chooseCoverImage } from "@/lib/cover-images";
 import { isVibe, type Budget, type VoteValue } from "@/lib/sidequests";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
@@ -113,7 +114,34 @@ export async function createSidequest(
     return { error: generationErrorMessage(error) };
   }
 
-  const stops = await addApproximateCoordinates(generated.stops);
+  let stops;
+  try {
+    stops = await addExactCoordinates(generated.stops);
+  } catch (error) {
+    console.error("Could not resolve exact sidequest places", error);
+    return { error: "We could not verify every place on the map. Please generate another route." };
+  }
+
+  const { data: assignedCovers } = await admin
+    .from("sidequests")
+    .select("cover_image_key")
+    .not("cover_image_key", "is", null);
+  const usedCoverKeys = new Set(
+    (assignedCovers ?? []).flatMap((row) => row.cover_image_key ? [row.cover_image_key] : []),
+  );
+
+  let cover;
+  try {
+    cover = await chooseCoverImage({
+      neighborhood,
+      title: generated.title,
+      vibe,
+      stops,
+    }, usedCoverKeys);
+  } catch (error) {
+    console.error("Could not select a unique cover", error);
+    return { error: "We could not find a unique matching NYC cover photo. Please try again." };
+  }
 
   const { data: sidequest, error: insertError } = await admin
     .from("sidequests")
@@ -130,6 +158,13 @@ export async function createSidequest(
       hook: generated.hook,
       stops,
       budget_note: generated.budgetNote,
+      cover_image_url: cover.src,
+      cover_image_alt: cover.alt,
+      cover_image_credit: cover.credit,
+      cover_image_credit_url: cover.creditUrl,
+      cover_image_source: cover.source,
+      cover_image_key: cover.key,
+      content_version: 2,
       prompt_text: generated.promptText,
       model_name: generated.modelName,
     })

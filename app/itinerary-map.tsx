@@ -1,59 +1,50 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import type { SidequestStop } from "@/lib/sidequests";
+import type { SidequestPlace, SidequestStop } from "@/lib/sidequests";
 
-type ItineraryMapProps = {
-  stops: SidequestStop[];
-};
+type ItineraryMapProps = { stops: SidequestStop[] };
 
 export default function ItineraryMap({ stops }: ItineraryMapProps) {
   const mapElement = useRef<HTMLDivElement>(null);
-  const locatedStops = useMemo(
-    () =>
-      stops.filter(
-        (stop): stop is SidequestStop & { latitude: number; longitude: number } =>
-          Number.isFinite(stop.latitude) && Number.isFinite(stop.longitude),
-      ),
-    [stops],
-  );
+  const mappedPlaces = useMemo(() => stops.flatMap((stop, stopIndex) =>
+    stop.places.map((place, placeIndex) => ({ place, stopIndex, placeIndex }))), [stops]);
+  const primaryPlaces = useMemo(() => stops.flatMap((stop) => stop.places.slice(0, 1)), [stops]);
 
   useEffect(() => {
-    if (!mapElement.current || locatedStops.length === 0) return;
-
+    if (!mapElement.current || mappedPlaces.length === 0) return;
     let disposed = false;
     let cleanup = () => {};
 
     void import("leaflet").then((leafletModule) => {
       if (disposed || !mapElement.current) return;
       const L = leafletModule.default;
-      const map = L.map(mapElement.current, {
-        scrollWheelZoom: false,
-        zoomControl: true,
-      });
-      const points = locatedStops.map(
-        (stop) => [stop.latitude, stop.longitude] as [number, number],
-      );
+      const map = L.map(mapElement.current, { scrollWheelZoom: false, zoomControl: true });
+      const points = mappedPlaces.map(({ place }) => [place.latitude, place.longitude] as [number, number]);
 
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
       }).addTo(map);
 
-      locatedStops.forEach((stop, index) => {
+      mappedPlaces.forEach(({ place, stopIndex, placeIndex }) => {
+        const markerLabel = placeIndex === 0
+          ? String(stopIndex + 1)
+          : `${stopIndex + 1}${String.fromCharCode(65 + placeIndex)}`;
         const icon = L.divIcon({
-          className: "quest-map-marker-shell",
-          html: `<span class="quest-map-marker">${index + 1}</span>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17],
+          className: `quest-map-marker-shell${placeIndex > 0 ? " alternative" : ""}`,
+          html: `<span class="quest-map-marker">${markerLabel}</span>`,
+          iconSize: [38, 34],
+          iconAnchor: [19, 17],
         });
-        L.marker([stop.latitude, stop.longitude], { icon })
+        const placeUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.address}`)}`;
+        L.marker([place.latitude, place.longitude], { icon })
           .addTo(map)
-          .bindPopup(`<strong>${escapeHtml(stop.label)}</strong>`);
+          .bindPopup(`<strong>${escapeHtml(place.name)}</strong><br><span>${escapeHtml(place.address)}</span><br><a href="${escapeHtml(placeUrl)}" target="_blank" rel="noreferrer">Open in Google Maps ↗</a>`);
       });
 
-      if (points.length > 1) {
-        L.polyline(points, {
+      if (primaryPlaces.length > 1) {
+        L.polyline(primaryPlaces.map((place) => [place.latitude, place.longitude]), {
           color: "#172118",
           weight: 4,
           opacity: 0.85,
@@ -61,9 +52,8 @@ export default function ItineraryMap({ stops }: ItineraryMapProps) {
         }).addTo(map);
       }
 
-      if (points.length === 1) map.setView(points[0], 13);
+      if (points.length === 1) map.setView(points[0], 14);
       else map.fitBounds(L.latLngBounds(points), { padding: [38, 38] });
-
       cleanup = () => map.remove();
     });
 
@@ -71,49 +61,38 @@ export default function ItineraryMap({ stops }: ItineraryMapProps) {
       disposed = true;
       cleanup();
     };
-  }, [locatedStops]);
+  }, [mappedPlaces, primaryPlaces]);
 
-  if (locatedStops.length === 0) return null;
-
-  const directionsUrl = buildDirectionsUrl(locatedStops);
+  if (mappedPlaces.length === 0) return null;
+  const directionsUrl = buildDirectionsUrl(primaryPlaces);
 
   return (
     <section className="route-card" aria-labelledby="route-heading">
       <div className="route-heading">
         <div>
           <p className="eyebrow">The route</p>
-          <h2 id="route-heading">Follow the dots</h2>
+          <h2 id="route-heading">Every place, pinned</h2>
         </div>
         <a href={directionsUrl} target="_blank" rel="noreferrer" className="secondary-button">
-          Open in Google Maps <span aria-hidden="true">↗</span>
+          Route the primary picks <span aria-hidden="true">↗</span>
         </a>
       </div>
-      <div ref={mapElement} className="quest-map" aria-label="Approximate itinerary route map" />
-      <p className="map-note">Approximate locations and route order. Check live directions before heading out.</p>
+      <div ref={mapElement} className="quest-map" aria-label="Map of every itinerary destination and recommendation" />
+      <p className="map-note">The route connects each primary destination. Lettered markers are optional recommendations. Check live directions before heading out.</p>
     </section>
   );
 }
 
-function buildDirectionsUrl(
-  stops: Array<SidequestStop & { latitude: number; longitude: number }>,
-) {
+function buildDirectionsUrl(stops: SidequestPlace[]) {
   const params = new URLSearchParams({
     api: "1",
     origin: `${stops[0].latitude},${stops[0].longitude}`,
     destination: `${stops.at(-1)!.latitude},${stops.at(-1)!.longitude}`,
     travelmode: "walking",
   });
-
   if (stops.length > 2) {
-    params.set(
-      "waypoints",
-      stops
-        .slice(1, -1)
-        .map((stop) => `${stop.latitude},${stop.longitude}`)
-        .join("|"),
-    );
+    params.set("waypoints", stops.slice(1, -1).map((stop) => `${stop.latitude},${stop.longitude}`).join("|"));
   }
-
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 

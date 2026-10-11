@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { GeneratedStop } from "@/lib/gemini";
 import type { SidequestStop } from "@/lib/sidequests";
 
 type NominatimResult = {
@@ -44,19 +45,26 @@ async function geocode(query: string) {
   return { latitude, longitude };
 }
 
-export async function addApproximateCoordinates(stops: SidequestStop[]) {
+export async function addExactCoordinates(stops: GeneratedStop[]) {
   const locatedStops: SidequestStop[] = [];
+  let lookupIndex = 0;
 
-  for (const [index, stop] of stops.entries()) {
-    if (index > 0) await wait(1_100);
-
-    try {
-      const location = stop.mapQuery ? await geocode(stop.mapQuery) : null;
-      locatedStops.push(location ? { ...stop, ...location } : stop);
-    } catch (error) {
-      console.error("Could not geocode sidequest stop", error);
-      locatedStops.push(stop);
+  for (const stop of stops) {
+    const places = [];
+    for (const place of stop.places) {
+      if (lookupIndex > 0) await wait(1_100);
+      lookupIndex += 1;
+      try {
+        const location = await geocode(`${place.mapQuery}, ${place.address}`);
+        if (location) places.push({ ...place, ...location });
+      } catch (error) {
+        console.error("Could not geocode sidequest place", error);
+      }
     }
+    if (places.length === 0) {
+      throw new Error(`No exact map location could be found for ${stop.label}.`);
+    }
+    locatedStops.push({ ...stop, places });
   }
 
   return locatedStops;

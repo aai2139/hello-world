@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
-import type { Budget, Sidequest, SidequestStop, Vibe } from "@/lib/sidequests";
+import type { Budget, Sidequest, SidequestCover, SidequestStop, Vibe } from "@/lib/sidequests";
 
 type SidequestRow = {
   id: string;
@@ -15,13 +15,52 @@ type SidequestRow = {
   hook: string;
   stops: SidequestStop[];
   budget_note: string;
+  cover_image_url: string | null;
+  cover_image_alt: string | null;
+  cover_image_credit: string | null;
+  cover_image_credit_url: string | null;
+  cover_image_source: "local" | "wikimedia" | null;
+  cover_image_key: string | null;
+  content_version: number | null;
   worth_it_count: number;
   skip_it_count: number;
   created_at: string;
 };
 
 const PUBLIC_COLUMNS =
-  "id, neighborhood, budget, budget_min_cents, budget_max_cents, party_size, vibe, title, hook, stops, budget_note, worth_it_count, skip_it_count, created_at";
+  "id, neighborhood, budget, budget_min_cents, budget_max_cents, party_size, vibe, title, hook, stops, budget_note, cover_image_url, cover_image_alt, cover_image_credit, cover_image_credit_url, cover_image_source, cover_image_key, content_version, worth_it_count, skip_it_count, created_at";
+
+const LEGACY_COVER: SidequestCover = {
+  src: "/nyc-skyline.jpg",
+  alt: "The Manhattan skyline at golden hour",
+  credit: "Michael Discenza · CC0",
+  creditUrl: "https://commons.wikimedia.org/wiki/File:Skyline_of_Manhattan.jpg",
+  source: "local",
+  key: "local:nyc-skyline",
+};
+
+function normalizeStops(stops: SidequestStop[]) {
+  return stops.map((stop) => {
+    if (Array.isArray(stop.places) && stop.places.length > 0) return stop;
+    if (
+      stop.mapQuery &&
+      Number.isFinite(stop.latitude) &&
+      Number.isFinite(stop.longitude)
+    ) {
+      return {
+        ...stop,
+        places: [{
+          name: stop.mapQuery,
+          address: stop.mapQuery,
+          mapQuery: stop.mapQuery,
+          latitude: stop.latitude!,
+          longitude: stop.longitude!,
+        }],
+      };
+    }
+    return { ...stop, places: [] };
+  });
+}
 
 function toSidequest(row: SidequestRow): Sidequest {
   return {
@@ -34,8 +73,17 @@ function toSidequest(row: SidequestRow): Sidequest {
     vibe: row.vibe,
     title: row.title,
     hook: row.hook,
-    stops: row.stops,
+    stops: normalizeStops(row.stops),
     budgetNote: row.budget_note,
+    cover: row.cover_image_url ? {
+      src: row.cover_image_url,
+      alt: row.cover_image_alt || `${row.neighborhood} in New York City`,
+      credit: row.cover_image_credit || "Wikimedia Commons",
+      creditUrl: row.cover_image_credit_url || "https://commons.wikimedia.org/",
+      source: row.cover_image_source || "wikimedia",
+      key: row.cover_image_key || row.cover_image_url,
+    } : LEGACY_COVER,
+    contentVersion: row.content_version ?? 1,
     worthItCount: row.worth_it_count,
     skipItCount: row.skip_it_count,
     createdAt: row.created_at,

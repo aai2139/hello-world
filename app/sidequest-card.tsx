@@ -28,21 +28,21 @@ export default function SidequestCard({
     <article className={`sidequest-card${detailed ? " sidequest-detail" : ""}`}>
       <figure className="cover-photo">
         <Image
-          src="/nyc-skyline.jpg"
-          alt="The Manhattan skyline at golden hour"
+          src={sidequest.cover.src}
+          alt={sidequest.cover.alt}
           fill
           sizes={detailed ? "(max-width: 850px) 100vw, 850px" : "(max-width: 850px) 100vw, 540px"}
-          priority={detailed}
+          preload={detailed}
         />
         <div className="cover-scrim" />
         <figcaption>
           <span>NYC field guide</span>
           <a
-            href="https://commons.wikimedia.org/wiki/File:Skyline_of_Manhattan.jpg"
+            href={sidequest.cover.creditUrl}
             target="_blank"
             rel="noreferrer"
           >
-            Photo: Michael Discenza · CC0
+            Photo: {sidequest.cover.credit}
           </a>
         </figcaption>
       </figure>
@@ -74,6 +74,25 @@ export default function SidequestCard({
             <div>
               <strong>{stop.label}</strong>
               <p>{stop.activity}</p>
+              {stop.places.length > 0 && (
+                <ul className="stop-places" aria-label={`Destinations and recommendations for stop ${index + 1}`}>
+                  {stop.places.map((place, placeIndex) => (
+                    <li key={`${place.mapQuery}-${placeIndex}`}>
+                      <span className="place-option">
+                        {placeIndex === 0 ? "Destination" : `Option ${String.fromCharCode(65 + placeIndex)}`}
+                      </span>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.address}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {place.name} <span aria-hidden="true">↗</span>
+                      </a>
+                      <span>{place.address}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </li>
         ))}

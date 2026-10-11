@@ -16,12 +16,31 @@ export type Budget = (typeof BUDGET_OPTIONS)[number]["value"];
 export type Vibe = (typeof VIBE_OPTIONS)[number]["value"];
 export type VoteValue = -1 | 1;
 
+export type SidequestPlace = {
+  name: string;
+  address: string;
+  mapQuery: string;
+  latitude: number;
+  longitude: number;
+};
+
 export type SidequestStop = {
   label: string;
   activity: string;
+  places: SidequestPlace[];
+  /** Legacy fields retained while older rows are being regenerated. */
   mapQuery?: string;
   latitude?: number;
   longitude?: number;
+};
+
+export type SidequestCover = {
+  src: string;
+  alt: string;
+  credit: string;
+  creditUrl: string;
+  source: "local" | "wikimedia";
+  key: string;
 };
 
 export type Sidequest = {
@@ -36,6 +55,8 @@ export type Sidequest = {
   hook: string;
   stops: SidequestStop[];
   budgetNote: string;
+  cover: SidequestCover;
+  contentVersion: number;
   worthItCount: number;
   skipItCount: number;
   createdAt: string;
