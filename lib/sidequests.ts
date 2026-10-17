@@ -39,7 +39,7 @@ export type SidequestCover = {
   alt: string;
   credit: string;
   creditUrl: string;
-  source: "local" | "wikimedia";
+  source: "local" | "wikimedia" | "pexels";
   key: string;
 };
 

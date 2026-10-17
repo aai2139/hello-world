@@ -3,6 +3,15 @@ import "server-only";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import type { Budget, Sidequest, SidequestCover, SidequestStop, Vibe } from "@/lib/sidequests";
 
+export type ExploreSort = "fresh" | "top" | "discussed";
+export type ExploreFilters = {
+  sort?: ExploreSort;
+  budget?: Budget;
+  vibe?: Vibe;
+  location?: string;
+  search?: string;
+};
+
 type SidequestRow = {
   id: string;
   neighborhood: string;
@@ -19,7 +28,7 @@ type SidequestRow = {
   cover_image_alt: string | null;
   cover_image_credit: string | null;
   cover_image_credit_url: string | null;
-  cover_image_source: "local" | "wikimedia" | null;
+  cover_image_source: "local" | "wikimedia" | "pexels" | null;
   cover_image_key: string | null;
   content_version: number | null;
   worth_it_count: number;
@@ -90,24 +99,35 @@ function toSidequest(row: SidequestRow): Sidequest {
   };
 }
 
-export async function getPublicSidequests(sort: "fresh" | "top" = "fresh") {
+export async function getPublicSidequests(filters: ExploreFilters = {}) {
+  const sort = filters.sort ?? "fresh";
   const admin = createAdminSupabaseClient();
-  let query = admin
+  const query = admin
     .from("sidequests")
     .select(PUBLIC_COLUMNS)
     .eq("status", "published")
     .order("created_at", { ascending: false })
-    .limit(sort === "top" ? 100 : 24);
-
-  if (sort === "top") {
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    query = query.gte("created_at", weekAgo);
-  }
+    .limit(120);
 
   const { data, error } = await query;
   if (error) throw error;
 
-  const sidequests = ((data ?? []) as SidequestRow[]).map(toSidequest);
+  let sidequests = ((data ?? []) as SidequestRow[]).map(toSidequest);
+  if (filters.budget) sidequests = sidequests.filter((item) => item.budget === filters.budget);
+  if (filters.vibe) sidequests = sidequests.filter((item) => item.vibe === filters.vibe);
+  if (filters.location) {
+    const location = filters.location.toLowerCase();
+    sidequests = sidequests.filter((item) => item.neighborhood.toLowerCase() === location);
+  }
+  if (filters.search) {
+    const search = filters.search.toLowerCase();
+    sidequests = sidequests.filter((item) => [
+      item.title,
+      item.hook,
+      item.neighborhood,
+      ...item.stops.flatMap((stop) => [stop.label, stop.activity, ...stop.places.map((place) => place.name)]),
+    ].some((value) => value.toLowerCase().includes(search)));
+  }
   if (sort === "top") {
     sidequests.sort((a, b) => {
       const scoreDifference =
@@ -118,9 +138,25 @@ export async function getPublicSidequests(sort: "fresh" | "top" = "fresh") {
       if (voteDifference !== 0) return voteDifference;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
+  } else if (sort === "discussed") {
+    sidequests.sort((a, b) =>
+      (b.worthItCount + b.skipItCount) - (a.worthItCount + a.skipItCount) ||
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   return sidequests.slice(0, 24);
+}
+
+export async function getExploreLocations() {
+  const admin = createAdminSupabaseClient();
+  const { data, error } = await admin
+    .from("sidequests")
+    .select("neighborhood")
+    .eq("status", "published")
+    .order("neighborhood")
+    .limit(500);
+  if (error) throw error;
+  return [...new Set((data ?? []).map((row) => row.neighborhood).filter(Boolean))];
 }
 
 export async function getPublicSidequest(id: string) {

@@ -67,14 +67,14 @@ export default function SidequestCard({
       )}
       <p className="hook">{sidequest.hook}</p>
 
-      <ol className="stops">
+      <ol className={`stops${detailed ? "" : " stops-preview"}`}>
         {sidequest.stops.map((stop, index) => (
           <li key={`${stop.label}-${index}`}>
             <span className="stop-number">{index + 1}</span>
             <div>
               <strong>{stop.label}</strong>
-              <p>{stop.activity}</p>
-              {stop.places.length > 0 && (
+              {detailed ? <p>{stop.activity}</p> : stop.places[0] && <p>{stop.places[0].name}</p>}
+              {detailed && stop.places.length > 0 && (
                 <ul className="stop-places" aria-label={`Destinations and recommendations for stop ${index + 1}`}>
                   {stop.places.map((place, placeIndex) => (
                     <li key={`${place.mapQuery}-${placeIndex}`}>
@@ -98,10 +98,10 @@ export default function SidequestCard({
         ))}
       </ol>
 
-      <div className="budget-note">
-        <span>Budget check</span>
-        <p>{sidequest.budgetNote}</p>
-      </div>
+      {detailed && <div className="budget-note">
+          <span>Budget check</span>
+          <p>{sidequest.budgetNote}</p>
+        </div>}
 
       <div className="card-footer">
         <VoteControls

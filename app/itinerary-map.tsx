@@ -16,7 +16,7 @@ export default function ItineraryMap({ stops }: ItineraryMapProps) {
     let disposed = false;
     let cleanup = () => {};
 
-    void import("leaflet").then((leafletModule) => {
+    void import("leaflet").then(async (leafletModule) => {
       if (disposed || !mapElement.current) return;
       const L = leafletModule.default;
       const map = L.map(mapElement.current, { scrollWheelZoom: false, zoomControl: true });
@@ -44,12 +44,31 @@ export default function ItineraryMap({ stops }: ItineraryMapProps) {
       });
 
       if (primaryPlaces.length > 1) {
-        L.polyline(primaryPlaces.map((place) => [place.latitude, place.longitude]), {
-          color: "#172118",
-          weight: 4,
-          opacity: 0.85,
-          dashArray: "9 8",
-        }).addTo(map);
+        let routed = false;
+        try {
+          const response = await fetch("/api/walking-route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ points: primaryPlaces }),
+          });
+          if (response.ok && !disposed) {
+            const geojson = await response.json();
+            L.geoJSON(geojson, {
+              style: { color: "#172118", weight: 5, opacity: 0.88 },
+            }).addTo(map);
+            routed = true;
+          }
+        } catch {
+          // The direct connection below remains a useful fallback.
+        }
+        if (!routed) {
+          L.polyline(primaryPlaces.map((place) => [place.latitude, place.longitude]), {
+            color: "#172118",
+            weight: 4,
+            opacity: 0.85,
+            dashArray: "9 8",
+          }).addTo(map);
+        }
       }
 
       if (points.length === 1) map.setView(points[0], 14);
@@ -78,7 +97,7 @@ export default function ItineraryMap({ stops }: ItineraryMapProps) {
         </a>
       </div>
       <div ref={mapElement} className="quest-map" aria-label="Map of every itinerary destination and recommendation" />
-      <p className="map-note">The route connects each primary destination. Lettered markers are optional recommendations. Check live directions before heading out.</p>
+      <p className="map-note">The walking route connects each primary destination when live routing is available. Lettered markers are optional recommendations. Check current directions before heading out. Route data © Geoapify and OpenStreetMap contributors.</p>
     </section>
   );
 }

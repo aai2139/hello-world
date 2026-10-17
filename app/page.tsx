@@ -1,19 +1,23 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import SidequestCard from "@/app/sidequest-card";
-import { getPublicSidequests } from "@/lib/sidequest-data";
-import type { Sidequest, VoteValue } from "@/lib/sidequests";
+import { getExploreLocations, getPublicSidequests, type ExploreSort } from "@/lib/sidequest-data";
+import { BUDGET_OPTIONS, isBudget, isVibe, type Sidequest, VIBE_OPTIONS, type VoteValue } from "@/lib/sidequests";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
 type HomeProps = {
-  searchParams: Promise<{ sort?: string }>;
+  searchParams: Promise<{ sort?: string; budget?: string; vibe?: string; location?: string; search?: string }>;
 };
 
 export default async function Home({ searchParams }: HomeProps) {
-  const { sort: sortParam } = await searchParams;
-  const sort = sortParam === "top" ? "top" : "fresh";
+  const params = await searchParams;
+  const sort: ExploreSort = params.sort === "top" || params.sort === "discussed" ? params.sort : "fresh";
+  const budget = params.budget && isBudget(params.budget) ? params.budget : undefined;
+  const vibe = params.vibe && isVibe(params.vibe) ? params.vibe : undefined;
+  const location = params.location?.trim().slice(0, 60) || undefined;
+  const search = params.search?.trim().slice(0, 80) || undefined;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -22,9 +26,13 @@ export default async function Home({ searchParams }: HomeProps) {
   if (!user) redirect("/login?next=/");
 
   let sidequests: Sidequest[] = [];
+  let locations: string[] = [];
   let setupError = false;
   try {
-    sidequests = await getPublicSidequests(sort);
+    [sidequests, locations] = await Promise.all([
+      getPublicSidequests({ sort, budget, vibe, location, search }),
+      getExploreLocations(),
+    ]);
   } catch (error) {
     console.error("Could not load public sidequests", error);
     setupError = true;
@@ -48,7 +56,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <div>
             <p className="eyebrow">Crowdsourced chaos. AI-planned weekends.</p>
             <h1>Trade the dorm for a New York sidequest.</h1>
-            <p className="hero-copy">Pick a neighborhood and a vibe. AI plots three stops, then the community decides whether the plan is actually worth it.</p>
+            <p className="hero-copy">Pick your corner of New York. Get three mapped stops, then see whether the community rates the route worth it.</p>
             <div className="hero-actions">
               <Link className="primary-button" href="/create">
                 Generate a sidequest
@@ -70,11 +78,45 @@ export default async function Home({ searchParams }: HomeProps) {
             <p className="eyebrow">Community field notes</p>
             <h2>Choose your next detour</h2>
           </div>
-          <div className="sort-tabs" aria-label="Sort sidequests">
-            <Link className={sort === "fresh" ? "active" : ""} href="/?sort=fresh#feed">Fresh</Link>
-            <Link className={sort === "top" ? "active" : ""} href="/?sort=top#feed">Top this week</Link>
-          </div>
         </div>
+
+        <form className="explore-filters" action="/" method="get">
+          <label className="filter-search">
+            <span>Search</span>
+            <input name="search" defaultValue={search} placeholder="Quest, stop, or neighborhood" />
+          </label>
+          <label>
+            <span>Sort</span>
+            <select name="sort" defaultValue={sort}>
+              <option value="fresh">Fresh</option>
+              <option value="top">Top rated</option>
+              <option value="discussed">Most discussed</option>
+            </select>
+          </label>
+          <label>
+            <span>Location</span>
+            <select name="location" defaultValue={location ?? ""}>
+              <option value="">Anywhere</option>
+              {locations.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Budget</span>
+            <select name="budget" defaultValue={budget ?? ""}>
+              <option value="">Any budget</option>
+              {BUDGET_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Vibe</span>
+            <select name="vibe" defaultValue={vibe ?? ""}>
+              <option value="">Any vibe</option>
+              {VIBE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+          </label>
+          <button className="primary-button filter-submit" type="submit">Apply</button>
+          {(search || location || budget || vibe || sort !== "fresh") && <Link className="clear-filters" href="/#feed">Clear</Link>}
+        </form>
 
         {setupError ? (
           <div className="empty-state">

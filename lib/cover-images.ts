@@ -240,6 +240,9 @@ export async function chooseCoverImage(input: CoverInput, usedKeys: Set<string>)
     .map((cover) => ({ cover, score: scoreCover(cover, input, haystack) }))
     .sort((a, b) => b.score - a.score || a.cover.key.localeCompare(b.cover.key));
 
+  const pexelsCover = await searchPexels(input, usedKeys);
+  if (pexelsCover) return pexelsCover;
+
   if (ranked[0] && ranked[0].score >= MATCH_THRESHOLD) return withoutTags(ranked[0].cover);
 
   const liveCover = await searchWikimedia(input, usedKeys);
@@ -248,6 +251,44 @@ export async function chooseCoverImage(input: CoverInput, usedKeys: Set<string>)
   const fallback = ranked[0]?.cover ?? CURATED_COVERS.find((cover) => !usedKeys.has(cover.key));
   if (!fallback) throw new Error("No unused NYC cover photo is currently available.");
   return withoutTags(fallback);
+}
+
+async function searchPexels(input: CoverInput, usedKeys: Set<string>) {
+  const apiKey = process.env.PEXELS_API_KEY;
+  if (!apiKey) return null;
+
+  const primaryPlace = input.stops.flatMap((stop) => stop.places.slice(0, 1))[0];
+  const query = [primaryPlace?.name, input.neighborhood, "New York City"]
+    .filter(Boolean)
+    .join(" ");
+  const params = new URLSearchParams({
+    query,
+    orientation: "landscape",
+    size: "large",
+    per_page: "15",
+  });
+
+  try {
+    const response = await fetch(`https://api.pexels.com/v1/search?${params}`, {
+      headers: { Authorization: apiKey },
+      next: { revalidate: 60 * 60 * 24 * 7 },
+    });
+    if (!response.ok) return null;
+    const body = await response.json() as PexelsResponse;
+    const photo = body.photos?.find((candidate) => !usedKeys.has(`pexels:${candidate.id}`));
+    if (!photo?.src?.large2x || !photo.photographer || !photo.url) return null;
+    return {
+      src: photo.src.large2x,
+      alt: cleanText(photo.alt) || `${input.neighborhood} in New York City`,
+      credit: `${photo.photographer} · Pexels`,
+      creditUrl: photo.url,
+      source: "pexels" as const,
+      key: `pexels:${photo.id}`,
+    };
+  } catch (error) {
+    console.error("Pexels cover lookup failed", error);
+    return null;
+  }
 }
 
 function scoreCover(cover: CuratedCover, input: CoverInput, haystack: string) {
@@ -358,6 +399,20 @@ function stripTracking(value: string) {
   url.search = "";
   return url.toString();
 }
+
+function cleanText(value: string | undefined) {
+  return (value ?? "").replace(/\s+/g, " ").trim().slice(0, 220);
+}
+
+type PexelsResponse = {
+  photos?: Array<{
+    id: number;
+    url?: string;
+    photographer?: string;
+    alt?: string;
+    src?: { large2x?: string };
+  }>;
+};
 
 type WikimediaResponse = {
   query?: {
