@@ -115,8 +115,17 @@ export default function CreateForm() {
       {state.error && <p className="form-error" role="alert">{state.error}</p>}
 
       <button className="primary-button generate-button" type="submit" disabled={pending}>
-        {pending ? "Plotting your sidequest…" : "Generate my sidequest"}
+        {pending ? "Choosing your best sidequest…" : "Generate my sidequest"}
       </button>
+      {pending && (
+        <div className="generation-progress" role="status" aria-live="polite">
+          <span className="generation-spinner" aria-hidden="true" />
+          <div>
+            <strong>Building three route ideas</strong>
+            <p>Checking real places and map coordinates, then choosing the strongest plan. This usually takes about 30 seconds.</p>
+          </div>
+        </div>
+      )}
       <p className="form-footnote">AI ideas can be wrong. Check hours, prices, transit, and accessibility before you go.</p>
     </form>
   );

@@ -222,6 +222,12 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
 .radio-card input:checked + span { background: var(--lime); box-shadow: 3px 3px 0 var(--ink); transform: translate(-1px, -1px); }
 .radio-card input:focus-visible + span { outline: 3px solid var(--blue); outline-offset: 2px; }
 .generate-button { width: 100%; }
+.generation-progress { margin-top: 14px; padding: 14px 15px; display: flex; align-items: flex-start; gap: 12px; border: 1px solid var(--line); background: var(--paper-deep); }
+.generation-progress strong { display: block; margin-bottom: 3px; font-size: 13px; }
+.generation-progress p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.generation-spinner { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 2px; border: 2px solid var(--line); border-top-color: var(--blue); border-radius: 50%; animation: generation-spin 800ms linear infinite; }
+@keyframes generation-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .generation-spinner { animation: none; border-color: var(--blue); } }
 .form-error { padding: 11px; border-left: 4px solid #b63a24; background: #ffe8df; color: #7c2617; font-size: 13px; }
 .form-message { font-size: 13px; color: var(--muted); }
 .form-footnote { margin: 13px 0 0; color: var(--muted); text-align: center; font-size: 11px; line-height: 1.4; }
