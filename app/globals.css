@@ -262,9 +262,13 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
 
 .login-page { width: min(1000px, calc(100% - 40px)); margin: 0 auto; padding: 80px 0 100px; }
 .login-card { min-height: 500px; display: grid; grid-template-columns: 0.85fr 1.15fr; border: 2px solid var(--ink); background: var(--card); box-shadow: 8px 8px 0 var(--ink); overflow: hidden; }
-.login-art { position: relative; overflow: hidden; background: var(--blue); border-right: 2px solid var(--ink); display: flex; flex-direction: column; justify-content: space-around; align-items: center; padding: 30px; }
-.login-art span { position: relative; z-index: 2; width: 55px; height: 55px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 50%; background: var(--lime); font-family: var(--serif); font-weight: 900; font-size: 23px; }
-.route-line { position: absolute; width: 3px; height: 80%; background: var(--ink); transform: rotate(15deg); }
+.login-art { position: relative; min-width: 0; margin: 0; overflow: hidden; background: var(--blue); border-right: 2px solid var(--ink); }
+.login-photo { object-fit: cover; object-position: 51% center; }
+.login-photo-shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(12, 20, 14, 0.06) 35%, rgba(12, 20, 14, 0.84) 100%); }
+.login-photo-copy { position: absolute; z-index: 1; left: 28px; right: 28px; bottom: 47px; color: white; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55); }
+.login-photo-copy span { display: block; margin-bottom: 10px; font-size: 11px; font-weight: 900; letter-spacing: 0.14em; }
+.login-photo-copy strong { font-family: var(--serif); font-size: clamp(27px, 3vw, 38px); line-height: 0.98; letter-spacing: -0.035em; }
+.login-photo-credit { position: absolute; z-index: 2; right: 13px; bottom: 11px; color: white; font-size: 9px; font-weight: 800; text-decoration: underline; text-shadow: 0 1px 5px rgba(0, 0, 0, 0.9); }
 .login-copy { padding: 55px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
 .login-copy h1 { margin: 0; font-family: var(--serif); font-size: clamp(43px, 6vw, 67px); letter-spacing: -0.05em; line-height: 0.95; }
 .login-copy > p:not(.eyebrow) { color: var(--muted); line-height: 1.6; font-size: 16px; }
@@ -285,8 +289,9 @@ fieldset { padding: 0; margin: 0 0 25px; border: 0; }
   .filter-search { grid-column: 1 / -1; }
   .choice-grid { grid-template-columns: repeat(2, 1fr); }
   .login-card { grid-template-columns: 1fr; }
-  .login-art { min-height: 210px; border-right: 0; border-bottom: 2px solid var(--ink); flex-direction: row; }
-  .route-line { width: 80%; height: 3px; transform: rotate(-7deg); }
+  .login-art { min-height: 250px; border-right: 0; border-bottom: 2px solid var(--ink); }
+  .login-photo { object-position: 50% 46%; }
+  .login-photo-copy { left: 24px; bottom: 40px; }
 }
 
 @media (max-width: 650px) {
