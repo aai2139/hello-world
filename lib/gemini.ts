@@ -6,6 +6,7 @@ import { vibeLabel } from "@/lib/sidequests";
 
 type GenerateSidequestInput = {
   neighborhood: string;
+  requestedNeighborhood?: string;
   budgetMin: number;
   budgetMax: number;
   partySize: number;
@@ -26,6 +27,15 @@ export type GeneratedStop = Omit<SidequestStop, "places"> & {
   places: Array<Omit<SidequestPlace, "latitude" | "longitude">>;
 };
 
+const JOKE_LOCATION_PATTERN = /(?:\b(?:ur|your|yo|my)\s+(?:mom|mum|mama)(?:'s|s)?(?:\s+house)?\b|\byo\s+mama\b|\bdeez\b|\bnarnia\b|\bgotham\b|\bmiddle\s+of\s+nowhere\b|\b(?:mars|the\s+moon)\b|\blmao\b|\blol\b)/i;
+
+export function resolvePlanningArea(neighborhood: string, vibe: Vibe) {
+  if (!JOKE_LOCATION_PATTERN.test(neighborhood)) return neighborhood;
+  if (vibe === "outdoors") return "Staten Island";
+  if (vibe === "culture" || vibe === "night-owl") return "The Bronx";
+  return "Morningside Heights and the Upper West Side";
+}
+
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
   return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
@@ -42,7 +52,10 @@ export async function generateSidequest(
   const modelName = process.env.GEMINI_MODEL || "gemini-3.8-flash";
   const promptText = [
     "Create one compact New York City sidequest for a college student who is new to the city.",
-    `Neighborhood or area: ${input.neighborhood}`,
+    `Actual neighborhood or area for every stop: ${input.neighborhood}`,
+    input.requestedNeighborhood && input.requestedNeighborhood !== input.neighborhood
+      ? `The user's original location label was a joke: ${JSON.stringify(input.requestedNeighborhood)}. Keep the playful spirit, but do not use it as a real location or mention it in addresses. Every destination must stay in the actual area above.`
+      : "The requested neighborhood is the actual planning area.",
     `Per-person budget range: $${input.budgetMin} to $${input.budgetMax}`,
     `Number of people: ${input.partySize}`,
     `Vibe: ${vibeLabel(input.vibe)}`,
@@ -50,6 +63,7 @@ export async function generateSidequest(
     "Return a playful title, a one-sentence hook, exactly three sequential stops, and a short per-person budget note.",
     "Make every stop actionable without forcing the user to do another search. Provide one mapped primary destination and up to two genuinely useful recommendations.",
     "A broad activity is valid when its named destination is sufficient by itself: for example, strolling in Central Park, sitting by the Hudson in Riverside Park, or shopping around SoHo can map the park, waterfront, or district. A category that requires choosing among businesses or hidden destinations—such as get a bagel, find a secret garden, visit a bookstore, or go thrifting—must name specific recommended places.",
+    "If a future location label is clearly a joke, fictional place, insult, or not a usable NYC destination, never invent businesses there. Base the route in Staten Island, the Bronx, Morningside Heights, or the Upper West Side instead.",
     "Each place may therefore be a real business, venue, named park, landmark, district, waterfront, or exact intersection. Give its proper name, a useful street address or area description, and a precise mapQuery.",
     "Keep the full outing practical for one weekend afternoon or evening and within the requested per-person budget. Prefer stable public places, neighborhood areas, parks, museums, food types, and well-known landmarks.",
     "Do not claim exact live prices, hours, availability, or accessibility. Do not include alcohol, illegal activity, trespassing, harassment, or unsafe instructions.",

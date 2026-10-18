@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { generateSidequest } from "@/lib/gemini";
+import { generateSidequest, resolvePlanningArea } from "@/lib/gemini";
 import { addExactCoordinates } from "@/lib/geocode";
 import { chooseCoverImage } from "@/lib/cover-images";
 import { isVibe, type Budget, type VoteValue } from "@/lib/sidequests";
@@ -78,6 +78,7 @@ export async function createSidequest(
 
   const budget: Budget =
     budgetMax <= 25 ? "under-25" : budgetMax <= 50 ? "25-50" : "50-plus";
+  const planningArea = resolvePlanningArea(neighborhood, vibe);
 
   let admin;
   try {
@@ -102,7 +103,8 @@ export async function createSidequest(
   let generated;
   try {
     generated = await generateSidequest({
-      neighborhood,
+      neighborhood: planningArea,
+      requestedNeighborhood: neighborhood,
       budgetMin,
       budgetMax,
       partySize,
@@ -133,7 +135,7 @@ export async function createSidequest(
   let cover;
   try {
     cover = await chooseCoverImage({
-      neighborhood,
+      neighborhood: planningArea,
       title: generated.title,
       vibe,
       stops,
