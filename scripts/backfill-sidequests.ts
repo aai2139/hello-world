@@ -67,20 +67,40 @@ async function main() {
       preferences: row.preferences ?? "",
       vibe: row.vibe,
     });
-    const stops = await addExactCoordinates(generated.stops);
+    const candidates = [
+      {
+        title: generated.title,
+        hook: generated.hook,
+        stops: generated.stops,
+        budgetNote: generated.budgetNote,
+      },
+      ...generated.alternates,
+    ];
+    let chosen = candidates[0];
+    let stops = null;
+    for (const candidate of candidates) {
+      try {
+        stops = await addExactCoordinates(candidate.stops, row.neighborhood);
+        chosen = candidate;
+        break;
+      } catch (routeError) {
+        console.warn(`Rejected a scattered route for ${row.id}`, routeError);
+      }
+    }
+    if (!stops) throw new Error("No generated candidate passed route validation.");
     const cover = await chooseCoverImage({
       neighborhood: row.neighborhood,
-      title: generated.title,
+      title: chosen.title,
       vibe: row.vibe,
       stops,
     }, usedCoverKeys);
     const { error: updateError } = await admin
       .from("sidequests")
       .update({
-        title: generated.title,
-        hook: generated.hook,
+        title: chosen.title,
+        hook: chosen.hook,
         stops,
-        budget_note: generated.budgetNote,
+        budget_note: chosen.budgetNote,
         prompt_text: generated.promptText,
         model_name: generated.modelName,
         cover_image_url: cover.src,

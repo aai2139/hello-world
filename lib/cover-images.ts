@@ -22,6 +22,15 @@ const CURATED_COVERS: CuratedCover[] = [
     tags: ["manhattan", "skyline", "outdoors", "surprise"],
   },
   {
+    src: "https://upload.wikimedia.org/wikipedia/commons/8/86/Chocolate_Babka.jpg",
+    alt: "Chocolate babka from Breads Bakery in New York City",
+    credit: "Yallayallaletsgo · CC BY-SA 4.0",
+    creditUrl: "https://commons.wikimedia.org/wiki/File:Chocolate_Babka.jpg",
+    source: "wikimedia",
+    key: "commons:82818554",
+    tags: ["breads bakery", "columbus circle", "babka", "dessert", "pastry", "food"],
+  },
+  {
     src: "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0a/Central_Park_New_York_City_New_York_23_cropped.jpg/1920px-Central_Park_New_York_City_New_York_23_cropped.jpg",
     alt: "A Gothic arch and bridle path in Central Park",
     credit: "Jet Lowe · Public domain",
@@ -231,7 +240,12 @@ const CURATED_COVERS: CuratedCover[] = [
 ];
 
 const MATCH_THRESHOLD = 4;
+const COVER_LOOKUP_TIMEOUT_MS = 6_000;
 const SUPPORTED_LICENSE = /^(CC0|CC BY(?:-SA)?(?: \d\.\d)?|Public domain)/i;
+const SEARCH_STOP_WORDS = new Set([
+  "and", "the", "new", "york", "city", "nyc", "at", "in", "of", "on",
+  "shop", "store", "restaurant", "cafe", "location",
+]);
 
 export async function chooseCoverImage(input: CoverInput, usedKeys: Set<string>) {
   const haystack = buildHaystack(input);
@@ -240,12 +254,32 @@ export async function chooseCoverImage(input: CoverInput, usedKeys: Set<string>)
     .map((cover) => ({ cover, score: scoreCover(cover, input, haystack) }))
     .sort((a, b) => b.score - a.score || a.cover.key.localeCompare(b.cover.key));
 
-  const pexelsCover = await searchPexels(input, usedKeys);
+  const topic = identifyCoverTopic(haystack);
+  const [placeCover, pexelsCover] = await Promise.all([
+    searchWikimediaPlace(input, usedKeys),
+    searchPexels(topic?.query ?? `${input.neighborhood} New York City`, input, usedKeys),
+  ]);
+  if (placeCover) return placeCover;
+  if (ranked[0] && ranked[0].score >= MATCH_THRESHOLD) return withoutTags(ranked[0].cover);
   if (pexelsCover) return pexelsCover;
 
-  if (ranked[0] && ranked[0].score >= MATCH_THRESHOLD) return withoutTags(ranked[0].cover);
+  if (topic) {
+    const thematicCover = await searchWikimediaQuery(
+      `${topic.query} New York City`,
+      topic.terms,
+      usedKeys,
+      1,
+    );
+    if (thematicCover) return thematicCover;
+  }
 
-  const liveCover = await searchWikimedia(input, usedKeys);
+  const contextTerms = meaningfulSearchTerms(`${input.neighborhood} ${input.title}`);
+  const liveCover = await searchWikimediaQuery(
+    `${input.neighborhood} ${input.title} New York City`,
+    contextTerms,
+    usedKeys,
+    Math.min(2, contextTerms.length),
+  );
   if (liveCover) return liveCover;
 
   const fallback = ranked[0]?.cover ?? CURATED_COVERS.find((cover) => !usedKeys.has(cover.key));
@@ -253,14 +287,10 @@ export async function chooseCoverImage(input: CoverInput, usedKeys: Set<string>)
   return withoutTags(fallback);
 }
 
-async function searchPexels(input: CoverInput, usedKeys: Set<string>) {
+async function searchPexels(query: string, input: CoverInput, usedKeys: Set<string>) {
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey) return null;
 
-  const primaryPlace = input.stops.flatMap((stop) => stop.places.slice(0, 1))[0];
-  const query = [primaryPlace?.name, input.neighborhood, "New York City"]
-    .filter(Boolean)
-    .join(" ");
   const params = new URLSearchParams({
     query,
     orientation: "landscape",
@@ -272,6 +302,7 @@ async function searchPexels(input: CoverInput, usedKeys: Set<string>) {
     const response = await fetch(`https://api.pexels.com/v1/search?${params}`, {
       headers: { Authorization: apiKey },
       next: { revalidate: 60 * 60 * 24 * 7 },
+      signal: AbortSignal.timeout(COVER_LOOKUP_TIMEOUT_MS),
     });
     if (!response.ok) return null;
     const body = await response.json() as PexelsResponse;
@@ -289,6 +320,28 @@ async function searchPexels(input: CoverInput, usedKeys: Set<string>) {
     console.error("Pexels cover lookup failed", error);
     return null;
   }
+}
+
+function identifyCoverTopic(haystack: string) {
+  const topics = [
+    { pattern: /dessert|pastry|cake|cookie|babka|ice cream|gelato|chocolate|donut|doughnut|sweet/, query: "dessert pastry", terms: ["dessert", "pastry", "cake", "cookie", "babka", "chocolate", "bakery"] },
+    { pattern: /book|bookstore|reading|literary/, query: "bookstore books", terms: ["bookstore", "books", "book"] },
+    { pattern: /museum|gallery|art|sculpture|mural/, query: "art museum gallery", terms: ["art", "museum", "gallery", "sculpture", "mural"] },
+    { pattern: /park|garden|waterfront|river|picnic|walk|stroll|nature/, query: "New York park nature", terms: ["park", "garden", "waterfront", "river", "nature"] },
+    { pattern: /jazz|music|concert|karaoke|vinyl|record/, query: "live music jazz", terms: ["music", "jazz", "concert", "karaoke", "record"] },
+    { pattern: /thrift|shopping|boutique|market/, query: "shopping market", terms: ["shopping", "market", "boutique"] },
+    { pattern: /coffee|espresso|latte|tea|matcha/, query: "coffee tea cafe", terms: ["coffee", "tea", "cafe", "matcha"] },
+    { pattern: /food|pizza|bagel|taco|restaurant|diner|sandwich|empanada/, query: "New York food", terms: ["food", "pizza", "bagel", "taco", "diner", "sandwich", "empanada"] },
+  ];
+  return topics.find((topic) => topic.pattern.test(haystack)) ?? null;
+}
+
+function meaningfulSearchTerms(value: string) {
+  return [...new Set(
+    value.toLowerCase().match(/[a-z0-9]+/g)?.filter(
+      (term) => term.length > 2 && !SEARCH_STOP_WORDS.has(term),
+    ) ?? [],
+  )];
 }
 
 function scoreCover(cover: CuratedCover, input: CoverInput, haystack: string) {
@@ -326,11 +379,25 @@ function withoutTags(cover: CuratedCover): SidequestCover {
   };
 }
 
-async function searchWikimedia(input: CoverInput, usedKeys: Set<string>) {
-  const placeNames = input.stops
-    .flatMap((stop) => stop.places.slice(0, 1).map((place) => place.name))
-    .join(" ");
-  const search = `${input.neighborhood} ${placeNames} New York City`;
+async function searchWikimediaPlace(input: CoverInput, usedKeys: Set<string>) {
+  const primaryPlace = input.stops[0]?.places[0];
+  if (!primaryPlace) return null;
+  const terms = meaningfulSearchTerms(primaryPlace.name);
+  if (terms.length === 0) return null;
+  return searchWikimediaQuery(
+    `${primaryPlace.name} ${input.neighborhood} New York City`,
+    terms,
+    usedKeys,
+    Math.min(2, terms.length),
+  );
+}
+
+async function searchWikimediaQuery(
+  search: string,
+  relevanceTerms: string[],
+  usedKeys: Set<string>,
+  minimumMatches: number,
+) {
   const params = new URLSearchParams({
     action: "query",
     generator: "search",
@@ -349,6 +416,7 @@ async function searchWikimedia(input: CoverInput, usedKeys: Set<string>) {
     const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {
       headers: { "User-Agent": "NYC-Sidequests/1.0 (https://github.com/aai2139/hello-world)" },
       next: { revalidate: 60 * 60 * 24 * 7 },
+      signal: AbortSignal.timeout(COVER_LOOKUP_TIMEOUT_MS),
     });
     if (!response.ok) return null;
     const body = await response.json() as WikimediaResponse;
@@ -358,18 +426,22 @@ async function searchWikimedia(input: CoverInput, usedKeys: Set<string>) {
     for (const page of pages) {
       const image = page.imageinfo?.[0];
       const license = cleanHtml(image?.extmetadata?.LicenseShortName?.value ?? "");
+      const description = cleanHtml(image?.extmetadata?.ImageDescription?.value ?? "");
+      const searchableText = `${page.title} ${description}`.toLowerCase();
+      const relevanceMatches = relevanceTerms.filter((term) => searchableText.includes(term)).length;
       const key = `commons:${page.pageid}`;
       if (
         !image?.thumburl ||
         !image.mime?.startsWith("image/") ||
         image.mime === "image/svg+xml" ||
         !SUPPORTED_LICENSE.test(license) ||
+        relevanceMatches < minimumMatches ||
         usedKeys.has(key)
       ) continue;
       const artist = cleanHtml(image.extmetadata?.Artist?.value ?? "Wikimedia contributor");
       return {
         src: stripTracking(image.thumburl),
-        alt: cleanHtml(image.extmetadata?.ImageDescription?.value ?? page.title.replace(/^File:/, "")),
+        alt: description || page.title.replace(/^File:/, ""),
         credit: `${artist} · ${license}`,
         creditUrl: image.descriptionurl,
         source: "wikimedia" as const,

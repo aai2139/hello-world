@@ -23,11 +23,28 @@ export type VoteResult = {
 function generationErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (message.includes("not configured")) return message;
-  if (message.includes("429") || message.toLowerCase().includes("quota")) {
+  if (
+    /\b(?:408|429|500|502|503|504)\b/.test(message) ||
+    /quota|high demand|unavailable|timeout/i.test(message)
+  ) {
     return "The AI generator is busy right now. Please try again in a few minutes.";
   }
   if (message.includes("incomplete") || message.includes("unreadable")) return message;
   return "We could not generate that sidequest. Try a different idea in a moment.";
+}
+
+async function refundGenerationSlot(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  attemptId: string,
+  userId: string,
+) {
+  const { error } = await admin
+    .from("generation_attempts")
+    .delete()
+    .eq("id", attemptId)
+    .eq("user_id", userId)
+    .eq("succeeded", false);
+  if (error) console.error("Could not refund failed generation slot", error);
 }
 
 export async function createSidequest(
@@ -113,15 +130,34 @@ export async function createSidequest(
     });
   } catch (error) {
     console.error("Gemini generation failed", error);
+    await refundGenerationSlot(admin, attemptId, user.id);
     return { error: generationErrorMessage(error) };
   }
 
-  let stops;
-  try {
-    stops = await addExactCoordinates(generated.stops);
-  } catch (error) {
-    console.error("Could not resolve exact sidequest places", error);
-    return { error: "We could not verify every place on the map. Please generate another route." };
+  const candidateOptions = [
+    {
+      title: generated.title,
+      hook: generated.hook,
+      stops: generated.stops,
+      budgetNote: generated.budgetNote,
+    },
+    ...generated.alternates,
+  ];
+  let chosenCandidate = candidateOptions[0];
+  let stops = null;
+  for (const [index, candidate] of candidateOptions.entries()) {
+    try {
+      stops = await addExactCoordinates(candidate.stops, planningArea);
+      chosenCandidate = candidate;
+      if (index > 0) console.info(`Selected route candidate ${index + 1} after map validation`);
+      break;
+    } catch (error) {
+      console.warn(`Route candidate ${index + 1} failed map validation`, error);
+    }
+  }
+  if (!stops) {
+    await refundGenerationSlot(admin, attemptId, user.id);
+    return { error: "We could not build a compact walking route in that area. Please try again." };
   }
 
   const { data: assignedCovers } = await admin
@@ -136,12 +172,13 @@ export async function createSidequest(
   try {
     cover = await chooseCoverImage({
       neighborhood: planningArea,
-      title: generated.title,
+      title: chosenCandidate.title,
       vibe,
       stops,
     }, usedCoverKeys);
   } catch (error) {
     console.error("Could not select a unique cover", error);
+    await refundGenerationSlot(admin, attemptId, user.id);
     return { error: "We could not find a unique matching NYC cover photo. Please try again." };
   }
 
@@ -156,10 +193,10 @@ export async function createSidequest(
       party_size: partySize,
       preferences: preferences || null,
       vibe,
-      title: generated.title,
-      hook: generated.hook,
+      title: chosenCandidate.title,
+      hook: chosenCandidate.hook,
       stops,
-      budget_note: generated.budgetNote,
+      budget_note: chosenCandidate.budgetNote,
       cover_image_url: cover.src,
       cover_image_alt: cover.alt,
       cover_image_credit: cover.credit,
@@ -175,6 +212,7 @@ export async function createSidequest(
 
   if (insertError || !sidequest) {
     console.error("Could not save generated sidequest", insertError);
+    await refundGenerationSlot(admin, attemptId, user.id);
     return { error: "Your sidequest was generated but could not be saved. Please try again." };
   }
 
