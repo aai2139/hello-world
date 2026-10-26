@@ -8,6 +8,7 @@ import { chooseCoverImage } from "@/lib/cover-images";
 import { isVibe, type Budget, type VoteValue } from "@/lib/sidequests";
 import { createAdminSupabaseClient } from "@/lib/supabase-admin";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { loadGenerationControls, type GenerationControls } from "@/lib/generation-controls";
 
 export type CreateSidequestState = {
   error?: string;
@@ -52,16 +53,13 @@ async function startGenerationRequest(
   attemptId: string,
   userId: string,
   input: Record<string, unknown>,
+  controls: GenerationControls,
 ) {
-  const [{ data: chain }, { data: model }] = await Promise.all([
-    admin.from("prompt_chains").select("id").eq("slug", "sidequest-v1").maybeSingle(),
-    admin.from("llm_models").select("id").eq("is_default", true).maybeSingle(),
-  ]);
   const { data, error } = await admin.from("generation_requests").insert({
     generation_attempt_id: attemptId,
     user_id: userId,
-    prompt_chain_id: chain?.id ?? null,
-    model_id: model?.id ?? null,
+    prompt_chain_id: controls.chainId,
+    model_id: controls.modelRecordId,
     request_input: input,
   }).select("id, model_id").single();
   if (error) {
@@ -154,6 +152,7 @@ export async function createSidequest(
     return { error: "You have used all 5 generations for this hour. Try again later." };
   }
 
+  const controls = await loadGenerationControls(admin);
   const requestRecord = await startGenerationRequest(admin, attemptId, user.id, {
     neighborhood,
     planningArea,
@@ -162,7 +161,7 @@ export async function createSidequest(
     partySize,
     preferences,
     vibe,
-  });
+  }, controls);
 
   let generated;
   try {
@@ -174,6 +173,7 @@ export async function createSidequest(
       partySize,
       preferences,
       vibe,
+      controls,
     });
   } catch (error) {
     console.error("Gemini generation failed", error);
