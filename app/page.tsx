@@ -56,7 +56,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <div>
             <p className="eyebrow">Crowdsourced chaos. AI-planned weekends.</p>
             <h1>Trade the dorm for a New York sidequest.</h1>
-            <p className="hero-copy">Pick your corner of New York. Get three mapped stops, then see whether the community rates the route worth it.</p>
+            <p className="hero-copy">Pick your corner of New York. Get a cohesive mapped itinerary, then see whether the community rates the route worth it.</p>
             <div className="hero-actions">
               <Link className="primary-button" href="/create">
                 Generate a sidequest

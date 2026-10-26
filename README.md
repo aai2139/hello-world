@@ -5,7 +5,7 @@ NYC Sidequests is an authenticated community feed of AI-generated New York micro
 ## Product behavior
 
 - Authenticated sidequest feed and detail pages
-- Gemini-generated title, hook, three-stop itinerary, and budget note
+- Gemini-generated title, hook, cohesive 2–5 stop itinerary, and budget note
 - Actionable destinations: broad named parks and districts stay flexible, while activities that require choosing a business include specific mapped recommendations
 - Flexible per-person budgets, groups of 1–12, and optional planning preferences
 - A unique, itinerary-matched NYC cover from an attributed curated library or Wikimedia Commons fallback

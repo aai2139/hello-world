@@ -47,6 +47,43 @@ async function refundGenerationSlot(
   if (error) console.error("Could not refund failed generation slot", error);
 }
 
+async function startGenerationRequest(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  attemptId: string,
+  userId: string,
+  input: Record<string, unknown>,
+) {
+  const [{ data: chain }, { data: model }] = await Promise.all([
+    admin.from("prompt_chains").select("id").eq("slug", "sidequest-v1").maybeSingle(),
+    admin.from("llm_models").select("id").eq("is_default", true).maybeSingle(),
+  ]);
+  const { data, error } = await admin.from("generation_requests").insert({
+    generation_attempt_id: attemptId,
+    user_id: userId,
+    prompt_chain_id: chain?.id ?? null,
+    model_id: model?.id ?? null,
+    request_input: input,
+  }).select("id, model_id").single();
+  if (error) {
+    console.error("Could not record generation request", error);
+    return null;
+  }
+  return data;
+}
+
+async function failGenerationRequest(
+  admin: ReturnType<typeof createAdminSupabaseClient>,
+  requestId: string | undefined,
+  error: unknown,
+) {
+  if (!requestId) return;
+  await admin.from("generation_requests").update({
+    status: "failed",
+    error_message: error instanceof Error ? error.message.slice(0, 1000) : "Generation failed",
+    completed_at: new Date().toISOString(),
+  }).eq("id", requestId);
+}
+
 export async function createSidequest(
   _previousState: CreateSidequestState,
   formData: FormData,
@@ -117,6 +154,16 @@ export async function createSidequest(
     return { error: "You have used all 5 generations for this hour. Try again later." };
   }
 
+  const requestRecord = await startGenerationRequest(admin, attemptId, user.id, {
+    neighborhood,
+    planningArea,
+    budgetMin,
+    budgetMax,
+    partySize,
+    preferences,
+    vibe,
+  });
+
   let generated;
   try {
     generated = await generateSidequest({
@@ -130,6 +177,7 @@ export async function createSidequest(
     });
   } catch (error) {
     console.error("Gemini generation failed", error);
+    await failGenerationRequest(admin, requestRecord?.id, error);
     await refundGenerationSlot(admin, attemptId, user.id);
     return { error: generationErrorMessage(error) };
   }
@@ -156,6 +204,7 @@ export async function createSidequest(
     }
   }
   if (!stops) {
+    await failGenerationRequest(admin, requestRecord?.id, new Error("No candidate passed map validation"));
     await refundGenerationSlot(admin, attemptId, user.id);
     return { error: "We could not build a compact walking route in that area. Please try again." };
   }
@@ -178,6 +227,7 @@ export async function createSidequest(
     }, usedCoverKeys);
   } catch (error) {
     console.error("Could not select a unique cover", error);
+    await failGenerationRequest(admin, requestRecord?.id, error);
     await refundGenerationSlot(admin, attemptId, user.id);
     return { error: "We could not find a unique matching NYC cover photo. Please try again." };
   }
@@ -212,6 +262,7 @@ export async function createSidequest(
 
   if (insertError || !sidequest) {
     console.error("Could not save generated sidequest", insertError);
+    await failGenerationRequest(admin, requestRecord?.id, insertError ?? new Error("Sidequest insert failed"));
     await refundGenerationSlot(admin, attemptId, user.id);
     return { error: "Your sidequest was generated but could not be saved. Please try again." };
   }
@@ -221,6 +272,27 @@ export async function createSidequest(
     .update({ succeeded: true })
     .eq("id", attemptId)
     .eq("user_id", user.id);
+
+  if (requestRecord?.id) {
+    await Promise.all([
+      admin.from("generation_requests").update({
+        status: "succeeded",
+        selected_stop_count: stops.length,
+        completed_at: new Date().toISOString(),
+      }).eq("id", requestRecord.id),
+      admin.from("llm_responses").insert({
+        generation_request_id: requestRecord.id,
+        model_id: requestRecord.model_id,
+        response_kind: "candidate_generation",
+        raw_text: generated.rawResponseText,
+        parsed_output: {
+          selected: chosenCandidate,
+          alternates: generated.alternates,
+        },
+        latency_ms: generated.generationLatencyMs,
+      }),
+    ]);
+  }
 
   revalidatePath("/");
   revalidatePath("/dashboard");

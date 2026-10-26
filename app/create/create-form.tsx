@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { createSidequest, type CreateSidequestState } from "@/app/actions";
 import { VIBE_OPTIONS } from "@/lib/sidequests";
 
@@ -10,9 +10,24 @@ export default function CreateForm() {
   const [state, formAction, pending] = useActionState(createSidequest, initialState);
   const [partySize, setPartySize] = useState(2);
   const [preferences, setPreferences] = useState("");
+  const [progress, setProgress] = useState(8);
+
+  useEffect(() => {
+    if (!pending) return;
+    const timer = window.setInterval(() => {
+      setProgress((current) => Math.min(92, current + Math.max(1, Math.round((94 - current) / 9))));
+    }, 850);
+    return () => window.clearInterval(timer);
+  }, [pending]);
+
+  const loadingMessage = progress < 35
+    ? "Drafting a few strong route concepts"
+    : progress < 68
+      ? "Checking real places and map coordinates"
+      : "Choosing the most cohesive itinerary";
 
   return (
-    <form action={formAction} className="create-form">
+    <form action={formAction} className="create-form" onSubmit={() => setProgress(8)}>
       <div className="form-group">
         <label htmlFor="neighborhood">Where are you heading?</label>
         <input
@@ -118,11 +133,19 @@ export default function CreateForm() {
         {pending ? "Choosing your best sidequest…" : "Generate my sidequest"}
       </button>
       {pending && (
-        <div className="generation-progress" role="status" aria-live="polite">
-          <span className="generation-spinner" aria-hidden="true" />
-          <div>
-            <strong>Building three route ideas</strong>
-            <p>Checking real places and map coordinates, then choosing the strongest plan. This usually takes about 30 seconds.</p>
+        <div className="generation-loading-screen" role="status" aria-live="polite" aria-label="Generating your sidequest">
+          <div className="generation-loading-card">
+            <span className="generation-spinner generation-spinner-large" aria-hidden="true" />
+            <p className="eyebrow">Your route is taking shape</p>
+            <h2>Building a sidequest worth leaving home for.</h2>
+            <p>{loadingMessage}. The planner will use only as many stops as make the outing better.</p>
+            <div className="generation-loading-track" aria-hidden="true">
+              <span style={{ width: `${progress}%` }} />
+            </div>
+            <div className="generation-loading-meta">
+              <span>{progress}%</span>
+              <span>Usually about 30 seconds</span>
+            </div>
           </div>
         </div>
       )}

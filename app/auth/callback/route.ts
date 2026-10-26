@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { isEmailAllowed } from "@/lib/signup-access";
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
@@ -30,7 +31,14 @@ export async function GET(request: Request) {
             }
         );
 
-        await supabase.auth.exchangeCodeForSession(code);
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (!error) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!await isEmailAllowed(user?.email)) {
+                await supabase.auth.signOut();
+                return NextResponse.redirect(`${origin}/login?error=not_allowed`);
+            }
+        }
     }
 
     return NextResponse.redirect(`${origin}${next}`);

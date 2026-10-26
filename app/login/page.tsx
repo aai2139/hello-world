@@ -6,11 +6,11 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 export const dynamic = "force-dynamic";
 
 type LoginPageProps = {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { next: nextParam } = await searchParams;
+  const { next: nextParam, error } = await searchParams;
   const nextPath = nextParam?.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
   const supabase = await createServerSupabaseClient();
   const {
@@ -50,6 +50,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           <h1>Sign in and go somewhere new.</h1>
           <p>Generate sidequests, rate the community&apos;s plans, and keep a log of the corners you want to explore.</p>
           <LoginButton nextPath={nextPath} />
+          {error === "not_allowed" && <p className="form-error" role="alert">This email is not approved for Sidequests. Ask an administrator to allow your domain or email address.</p>}
           <small>We use Google only to identify your account and protect your ratings.</small>
         </div>
       </section>
