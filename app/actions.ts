@@ -286,6 +286,7 @@ export async function createSidequest(
         response_kind: "candidate_generation",
         raw_text: generated.rawResponseText,
         parsed_output: {
+          actualModelName: generated.modelName,
           selected: chosenCandidate,
           alternates: generated.alternates,
         },

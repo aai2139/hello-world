@@ -169,7 +169,8 @@ export async function generateSidequest(
   }
 
   const primaryModel = input.controls?.modelName || process.env.GEMINI_MODEL || "gemini-3.8-flash";
-  const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite";
+  const qualityFallbackModel = process.env.GEMINI_QUALITY_FALLBACK_MODEL || "gemini-3.6-flash";
+  const emergencyFallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite";
   const generationPrompt = [
     `Create ${CANDIDATE_COUNT} distinct, compact New York City sidequest candidates for a college student who is new to the city.`,
     `Actual neighborhood or area for every stop: ${input.neighborhood}`,
@@ -225,17 +226,23 @@ export async function generateSidequest(
   });
 
   let activeModel = primaryModel;
-  let response;
+  let response: Awaited<ReturnType<typeof generateCandidates>> | undefined;
+  let lastGenerationError: unknown;
   const generationStartedAt = Date.now();
-  try {
-    response = await generateCandidates(primaryModel);
-  } catch (error) {
-    if (!isTemporaryModelError(error) || fallbackModel === primaryModel) throw error;
-    console.warn(`Gemini ${primaryModel} was temporarily unavailable; trying ${fallbackModel}`);
-    activeModel = fallbackModel;
-    response = await generateCandidates(fallbackModel);
+  const modelChain = [...new Set([primaryModel, qualityFallbackModel, emergencyFallbackModel])];
+  for (const [index, model] of modelChain.entries()) {
+    try {
+      response = await generateCandidates(model);
+      activeModel = model;
+      break;
+    } catch (error) {
+      lastGenerationError = error;
+      if (!isTemporaryModelError(error) || index === modelChain.length - 1) throw error;
+      console.warn(`Gemini ${model} was temporarily unavailable; trying ${modelChain[index + 1]}`);
+    }
   }
 
+  if (!response) throw lastGenerationError ?? new Error("Gemini did not return a sidequest.");
   if (!response.text) {
     throw new Error("Gemini did not return a sidequest.");
   }
