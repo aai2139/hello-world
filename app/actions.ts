@@ -26,7 +26,7 @@ function generationErrorMessage(error: unknown) {
   if (message.includes("not configured")) return message;
   if (
     /\b(?:408|429|500|502|503|504)\b/.test(message) ||
-    /quota|high demand|unavailable|timeout/i.test(message)
+    /quota|high demand|unavailable|timeout|aborted/i.test(message)
   ) {
     return "The AI generator is busy right now. Please try again in a few minutes.";
   }

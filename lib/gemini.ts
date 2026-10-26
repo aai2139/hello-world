@@ -38,8 +38,8 @@ export type GeneratedStop = Omit<SidequestStop, "places"> & {
 const CANDIDATE_COUNT = 3;
 const MIN_STOPS = 2;
 const MAX_STOPS = 5;
-const GENERATION_TIMEOUT_MS = 18_000;
-const SELECTION_TIMEOUT_MS = 8_000;
+const GENERATION_TIMEOUT_MS = 35_000;
+const SELECTION_TIMEOUT_MS = 12_000;
 
 const JOKE_LOCATION_PATTERN = /(?:\b(?:ur|your|yo|my)\s+(?:mom|mum|mama)(?:'s|s)?(?:\s+house)?\b|\byo\s+mama\b|\bdeez\b|\bnarnia\b|\bgotham\b|\bmiddle\s+of\s+nowhere\b|\b(?:mars|the\s+moon)\b|\blmao\b|\blol\b)/i;
 
@@ -156,7 +156,8 @@ function isTemporaryModelError(error: unknown) {
     : 0;
   const message = error instanceof Error ? error.message.toLowerCase() : "";
   return status === 408 || status === 429 || status >= 500 ||
-    message.includes("high demand") || message.includes("unavailable") || message.includes("timeout");
+    message.includes("high demand") || message.includes("unavailable") ||
+    message.includes("timeout") || message.includes("aborted");
 }
 
 export async function generateSidequest(
@@ -203,7 +204,7 @@ export async function generateSidequest(
     config: {
       httpOptions: {
         timeout: GENERATION_TIMEOUT_MS,
-        retryOptions: { attempts: 1 },
+        retryOptions: { attempts: 2 },
       },
       temperature: 1,
       maxOutputTokens: 4200,
@@ -278,7 +279,7 @@ export async function generateSidequest(
         config: {
           httpOptions: {
             timeout: SELECTION_TIMEOUT_MS,
-            retryOptions: { attempts: 1 },
+            retryOptions: { attempts: 2 },
           },
           temperature: 0.2,
           maxOutputTokens: 1200,
