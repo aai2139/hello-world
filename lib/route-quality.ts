@@ -5,7 +5,7 @@ export type RoutePoint = {
 
 export const MAX_WALKING_LEG_MILES = 1.25;
 export const MAX_ROUTE_DISTANCE_MILES = 2.5;
-export const MAX_NEIGHBORHOOD_RADIUS_MILES = 2.25;
+export const MAX_NEIGHBORHOOD_RADIUS_MILES = 1.0;
 export const MAX_OPTION_DISTANCE_MILES = 0.75;
 
 const EARTH_RADIUS_MILES = 3_958.8;

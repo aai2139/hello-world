@@ -5,11 +5,11 @@ export const BUDGET_OPTIONS = [
 ] as const;
 
 export const VIBE_OPTIONS = [
-  { value: "food", label: "Food crawl" },
-  { value: "culture", label: "Culture fix" },
-  { value: "outdoors", label: "Outside energy" },
-  { value: "night-owl", label: "Night owl" },
-  { value: "surprise", label: "Surprise me" },
+  { value: "food", label: "Food fix" },
+  { value: "culture", label: "Fun & activities" },
+  { value: "outdoors", label: "Date night" },
+  { value: "night-owl", label: "Night out" },
+  { value: "surprise", label: "Explore / surprise me" },
 ] as const;
 
 export type Budget = (typeof BUDGET_OPTIONS)[number]["value"];

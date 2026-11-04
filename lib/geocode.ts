@@ -2,6 +2,7 @@ import "server-only";
 
 import type { GeneratedStop } from "@/lib/gemini";
 import type { SidequestStop } from "@/lib/sidequests";
+import { buildPlaceQueries } from "@/lib/geocode-query";
 import {
   assertCompactWalkingRoute,
   distanceMiles,
@@ -109,13 +110,14 @@ export async function addExactCoordinates(stops: GeneratedStop[], planningArea: 
 
   const locatePlace = async (place: GeneratedStop["places"][number]) => {
     try {
-      if (!process.env.GEOAPIFY_API_KEY && lookupIndex > 0) await wait(1_100);
-      lookupIndex += 1;
-      let location = await geocode(place.mapQuery, planningArea, neighborhoodCenter ?? undefined);
-      if (!location) {
-        if (!process.env.GEOAPIFY_API_KEY) await wait(1_100);
+      let location = null;
+      for (const query of buildPlaceQueries(place)) {
+        if (!process.env.GEOAPIFY_API_KEY && lookupIndex > 0) await wait(1_100);
         lookupIndex += 1;
-        location = await geocode(place.address, planningArea, neighborhoodCenter ?? undefined);
+        // A precise venue/address must win over a model-supplied neighborhood label.
+        // The planning area remains a proximity bias and route-level validation only.
+        location = await geocode(query, undefined, neighborhoodCenter ?? undefined);
+        if (location) break;
       }
       return location ? { ...place, ...location } : null;
     } catch (error) {

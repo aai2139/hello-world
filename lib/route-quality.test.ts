@@ -41,3 +41,16 @@ test("rejects a compact route that is outside the requested neighborhood", () =>
     /requested area/,
   );
 });
+
+test("rejects a venue more than one mile from a precise requested area", () => {
+  assert.throws(
+    () => assertCompactWalkingRoute(
+      [
+        { latitude: 40.7501, longitude: -73.9878 },
+        { latitude: 40.7508, longitude: -73.9855 },
+      ],
+      { latitude: 40.7359, longitude: -73.9911 },
+    ),
+    /requested area/,
+  );
+});
