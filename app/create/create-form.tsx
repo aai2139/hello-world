@@ -122,7 +122,6 @@ export default function CreateForm() {
           maxLength={500}
           value={preferences}
           onChange={(event) => setPreferences(event.target.value)}
-          placeholder="For example: I want activities before or around a Yankees game."
         />
         <p className="field-hint">Optional. Add an occasion, accessibility need, must-do, or anything you want the plan to work around.</p>
       </div>

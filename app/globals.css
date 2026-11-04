@@ -10,8 +10,8 @@
   --muted: #687168;
   --line: #c9c6b9;
   --shadow: 5px 5px 0 var(--ink);
-  --sans: var(--font-modern), "Avenir Next", sans-serif;
-  --serif: var(--font-editorial), Georgia, serif;
+  --sans: var(--font-playful), "Avenir Next", sans-serif;
+  --serif: Georgia, "Times New Roman", serif;
 }
 
 * { box-sizing: border-box; }
@@ -22,6 +22,7 @@ body {
   color: var(--ink);
   background: var(--paper);
   font-family: var(--sans);
+  font-weight: 600;
 }
 button, input { font: inherit; }
 button { cursor: pointer; }

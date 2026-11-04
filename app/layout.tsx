@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import { Manrope, Newsreader } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import SiteHeader from "@/app/site-header";
 
-const sans = Manrope({ subsets: ["latin"], variable: "--font-modern" });
-const serif = Newsreader({ subsets: ["latin"], variable: "--font-editorial" });
+const sans = Nunito({ subsets: ["latin"], variable: "--font-playful" });
 
 export const metadata: Metadata = {
   title: {
@@ -17,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable}`}>
+    <html lang="en" className={sans.variable}>
       <body>
         <SiteHeader />
         {children}
